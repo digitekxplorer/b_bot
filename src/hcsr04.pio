@@ -1,0 +1,127 @@
+
+; Description of ultrasonic algorithm
+;
+; start:
+;
+;   Send a 10 uSec pulse to the HCSR04 Trig pin to start the measurement
+;       Assume the Trig pin is currently 0, set it to 1, wait 10 us, set it to 0
+;       A length of 10 us, with a clock of 125MHz this is 1250 ticks, or binary: 10011100010. 
+;       Assuming that the 10 us doesn't have to be very precise, round it down to 10011000000. 
+;       The delay can be achieved by:
+;       
+;           set x 19        ; set x to 10011 (and clear the higher bits)
+;           mov ISR x       ; copy x to ISR 
+;           in NULL 6       ; shift in 6 more 0 bits
+;           mov x ISR       ; move the ISR to x (which now contains 10011000000)
+;       delay1:
+;           jmp x-- delay1  ; count down to 0: a delay of (about) 10 us
+;
+;       This results in a delay of about 10us.
+;   
+;   The distance to the object is encoded in the length of the pulse on the Echo pin
+;       Read the Echo pin (USE A VOLTAGE DIVIDER) wait until the input pulse becomes high
+;       Set the value 0xFFFFFFFF in x; this is the start of the 'timer'. This can be achieved by
+;       mov x ~NULL 
+;
+;       Now the value in x is decremented in a loop and each time the Echo pin is tested. 
+;       If the Echo pin is 0, the value (0xFFFFFFFF - x) represents the length of the echo pulse.
+;       Note: each decrement of x and a test of the Echo pin is 2 pio clock cycles.
+;   Push the bit-inversed value of x, i.e. (0xFFFFFFFF - x) into the Rx FIFO
+;
+;   According to the HCSR04 datasheet, we have to wait for 60ms before starting another measurement
+;       Use the same trick as above to create a delay. But now with values:
+;       7500000 clock cycles = 11100100111000011100000, round down to 11100 + 18 * 0
+;
+; Go back to start
+
+
+.program hcsr04
+
+; Add user input to allow us to start and stop the HC-SR04 pulses
+.wrap_target
+start:
+    pull block      ; Read TX FIFO; wait for user input
+    mov x OSR       ; check received command
+    set y 5         ; hc-sr04 command value
+    jmp x!=y start  ; Is it valid start command; if not go back to start
+    out NULL 1      ; value in OSR is shifted left to multiply by 2
+    mov y OSR       ; save value in y to compare later
+
+continue:
+                    ; send a pulse to the HCSR04 Trigger pin
+    set pins 1      ; set the trigger to 1 
+       
+                    ; delay for 10 us (the length of the trigger pulse)
+    set x 19        ; set x to 10011 (and clear the higher bits)
+    mov ISR x       ; copy x to ISR 
+    in NULL 6       ; shift in 6 more 0 bits
+    mov x ISR       ; move the ISR to x (which now contains 10011000000)
+delay1:
+    jmp x-- delay1  ; count down to 0: a delay of (about) 10 us
+
+    set pins 0      ; make the trigger 0 again, completing the trigger pulse
+                    ; 
+    wait 1 pin 0    ; wait for the echo pin to rise
+                    ; start a counting loop to measure the length of the echo pulse
+    mov x ~NULL     ; start with the value 0xFFFFFFFF
+timer:
+    jmp x-- test    ; count down
+    jmp timerstop   ; timer has reached 0, stop count down
+test:
+    jmp pin timer   ; test if the echo pin is still 1, if so, continue counting down
+timerstop:          ; echo pulse is over (or timer has reached 0)
+    mov ISR ~x      ; move the bit-inversed value in x to the ISR
+    push noblock    ; push the ISR into the Rx FIFO
+                    ; delay for 60ms (advice from datasheet to prevent triggering on echos)
+
+    set x 28        ; set x to 11100
+    mov ISR x       ; copy x to ISR
+    in NULL 18      ; shift in 18 more bits
+    mov x ISR       ; move the ISR to x 
+delay2:
+    jmp x-- delay2  ; delay (about) 60 ms
+    
+                    ; Add user input to allow us to stop HC-SR04
+    pull noblock    ; Read TX FIFO, if no user input, then continue sending pulses
+    mov x OSR
+    jmp x!=y continue   ; compare to saved value in y, if not the same then continue
+    
+.wrap               ; else, we received user input and values are the same
+                    ; so jumpt to start and wait for user input
+
+
+; PIO Initialization
+% c-sdk {
+static inline void hcsr04_program_init(PIO pio, uint sm, uint offset, uint input, uint output) {
+    pio_sm_config c = hcsr04_program_get_default_config(offset);
+
+    // Map the state machine's IN and JMP pin groups to one pin; namely 'input'
+    // also used for 'wait'
+    sm_config_set_in_pins(&c, input);
+    // set the 'jmp' pin
+    sm_config_set_jmp_pin(&c, input);
+    // Map the state machine's SET pin group to one pin; namely 'output'
+    sm_config_set_set_pins(&c, output, 1);
+    
+    // Set this pin's GPIO function (connect PIO to the pad)
+    pio_gpio_init(pio, input);
+    pio_gpio_init(pio, output);  
+    // set the output pin to output
+    pio_sm_set_consecutive_pindirs(pio, sm, output, 1, true);
+    
+    // set shift IN direction for ISR
+    // void sm_config_set_in_shift(pio_sm_config *c, bool shift_right, 
+    //                             bool autopush, uint push_threshold)
+    sm_config_set_in_shift(&c, false, false, 0);
+    
+    // set shift OUT direction for OSR
+    // void sm_config_set_out_shift(pio_sm_config *c, bool shift_right,
+    //                              bool autopull, uint pull_threshold)
+    sm_config_set_out_shift(&c, false, false, 0);
+
+    // Load our configuration, and jump to the start of the program
+    pio_sm_init(pio, sm, offset, &c);
+    // enable PIO state machine
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}
