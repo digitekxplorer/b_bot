@@ -16,7 +16,7 @@ static uint8_t adv_data[] = {
     // Flags general discoverable
     0x02, BLUETOOTH_DATA_TYPE_FLAGS, APP_AD_FLAGS,
     // Name
-    0x05, BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, 'P', 'i', 'c', 'o',
+    0x06, BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, 'B', '-', 'B', 'o', 't',
     // Custom Service UUID
     0x03, BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, 0x10, 0xFF,
 };
