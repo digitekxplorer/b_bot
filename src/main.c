@@ -6,6 +6,9 @@
 // B_Bot: drive motors, blink LED(s), measure ultrasonic signals, provide user 
 // interface during development, and provide wireless communications (either 
 // Bluetooth or WiFi).
+// 
+// An Android App is needed to communicate with Pico's BTstack (Bluetooth).
+// The Android App LightBlue by PunchThrough was used in this project.
 //
 // - UART inteface: incorporate UART RX interrupt with deferred task to read 
 // input from the user.
@@ -21,6 +24,7 @@
 // https://github.com/raspberrypi
 // https://freertos.org/Documentation/RTOS_book.html
 // https://bluekitchen-gmbh.com/btstack
+// https://punchthrough.com/lightblue/
 
 // Releases:
 // 10/28/2024  A. Baeza  Initial release: V1.0.0
