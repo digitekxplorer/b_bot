@@ -55,14 +55,14 @@ void motor_init(void) {
     // param chan Which channel to update. 0 for A, 1 for B.
     // param level new level for the selected output
     // static inline void pwm_set_chan_level(uint slice_num, uint chan, uint16_t level)
-    pwm_set_chan_level(slnum_ptr->slice_num1, PWM_CHAN_A, DUTY_CYC_A);   // mtr1
-    pwm_set_chan_level(slnum_ptr->slice_num2, PWM_CHAN_A, DUTY_CYC_B);   // mtr2
+    pwm_set_chan_level(slnum_ptr->slice_num1, MTR1_PWM_CHAN, DUTY_CYC_A);   // mtr1
+//    pwm_set_chan_level(slnum_ptr->slice_num2, PWM_CHAN_A, DUTY_CYC_B);   // mtr2
+    pwm_set_chan_level(slnum_ptr->slice_num2, MTR2_PWM_CHAN, DUTY_CYC_B);   // mtr2
     // Set initial B output high for DUTY_CYC_B cycles before dropping
 //    pwm_set_chan_level(slice_num, PWM_CHAN_B, DUTY_CYC_B);
     // Set the PWM running
     pwm_set_enabled(slnum_ptr->slice_num1, true);
     pwm_set_enabled(slnum_ptr->slice_num2, true);
-    
 }
 
 // Clear AIN1&2 and BIN1&2 to have motors start in off state
@@ -163,7 +163,8 @@ void motor_turnLeft(void) {
 uint32_t motor_set_dutyCycle(uint32_t dutycycle) {
     // Set motor speed by adjusting the PWM duty cycle.  Full speed is 5000, so multiply operator
     // input (1 to 10) by 500 to calulate the desired speed.
-    pwm_set_chan_level(slnum_ptr->slice_num1, PWM_CHAN_A, (uint16_t)(MTRDCYCLEMULTIPLIER1 * dutycycle));  // mtr1
-    pwm_set_chan_level(slnum_ptr->slice_num2, PWM_CHAN_A, (uint16_t)(MTRDCYCLEMULTIPLIER2 * dutycycle));  // mtr2
+    pwm_set_chan_level(slnum_ptr->slice_num1, MTR1_PWM_CHAN, (uint16_t)(MTRDCYCLEMULTIPLIER1 * dutycycle));  // mtr1
+//    pwm_set_chan_level(slnum_ptr->slice_num2, MTR1_PWM_CHAN, (uint16_t)(MTRDCYCLEMULTIPLIER2 * dutycycle));  // mtr2
+    pwm_set_chan_level(slnum_ptr->slice_num2, MTR2_PWM_CHAN, (uint16_t)(MTRDCYCLEMULTIPLIER2 * dutycycle));  // mtr2
    return (1);
    }
