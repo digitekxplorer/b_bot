@@ -121,6 +121,14 @@
 // Moved some source files to src/rpp_bot subdirectory
 // Oct 27, 2024
 // Moved vBLEinput_HandlerTask() to main.c and added get_xBLEinput_HandlerTask() function.
+// Major Version Release V1.0 GitHub.com/digitekxplorer
+// Jan 5, 2025
+// RP2350- E9 correction: use pull-up because of error in RP2350; see pico_init.c
+// Changed BUTTON_GPIO to GPIO14 in defs.h
+// Changed pin definitions: MTR2_BIN1=GPIO9; MTR2_BIN2=GPIO10; MTR2_PWM=GPIO11
+// Jan 8, 2025
+// Modified motor.c to include required change of GPIO11 to PWM_CHAN_B.
+// Minor Version Release V1.1 GitHub.com/digitekxplorer
 
 /*
 Copyright (c) <2024> <Al Baeza>
@@ -371,7 +379,9 @@ int main() {
     // Pushbutton setup
     // ****************
     // Pushbutton connected to GPIO2
-    gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_RISE, true, &vPshbttnInterruptHandler);
+    // RP2350- E9 correction: use pull-up because of error in RP2350
+//    gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_RISE, true, &vPshbttnInterruptHandler);
+    gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_FALL, true, &vPshbttnInterruptHandler);
 
     // *************************************************
     // FreeRTOS setup
@@ -885,7 +895,8 @@ static void vPioRxDeferredIntrHandlerTask( void * pvParameters ) {
 static void vPshbttnInterruptHandler() { 
      
     // Disable pushbotton interrupt and re-enable them in vPshbttnDeferredIntrHandlerTask() function.
-    gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_RISE, false, &vPshbttnInterruptHandler);
+//    gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_RISE, false, &vPshbttnInterruptHandler);
+    gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_FALL, false, &vPshbttnInterruptHandler);
     
 #ifdef PRINT_MESS        
     dbg_print('K');   // debug point
@@ -923,9 +934,11 @@ static void vPshbttnDeferredIntrHandlerTask( void * pvParameters ) {
 #endif
 
           vTaskDelay(5);        // FreeRTOS delay; debounce for 5 mSec
-          if (gpio_get(BUTTON_GPIO)) {  // read pushbutton status after debounce delay
+//          if (gpio_get(BUTTON_GPIO)) {  // read pushbutton status after debounce delay
+          if (!gpio_get(BUTTON_GPIO)) {  // read pushbutton status after debounce delay
 #ifdef PRINT_MESS
-             uart_puts(UART_ID, "Pushbutton still HIGH after debounce delay.\r\n");
+//             uart_puts(UART_ID, "Pushbutton still HIGH after debounce delay.\r\n");
+             uart_puts(UART_ID, "Pushbutton still LOW after debounce delay.\r\n");
 #endif  
           
              // Are we in pushbutton forward mode  
@@ -958,12 +971,14 @@ static void vPshbttnDeferredIntrHandlerTask( void * pvParameters ) {
           
           else {
 #ifdef PRINT_MESS
-             uart_puts(UART_ID, "Pushbutton LOW after debounce delay.\r\n");
+//             uart_puts(UART_ID, "Pushbutton LOW after debounce delay.\r\n");
+             uart_puts(UART_ID, "Pushbutton HIGH after debounce delay.\r\n");
 #endif              
           }
 
           // Enable puahbotton interrupt.
-          gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_RISE, true, &vPshbttnInterruptHandler);   
+//          gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_RISE, true, &vPshbttnInterruptHandler);
+          gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_FALL, true, &vPshbttnInterruptHandler);
         }  // end of notification loop         
     }  // end of for loop 
 }  // end handler task
