@@ -189,13 +189,19 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 #define DUTY_CYC_B DCYCLE_PRIMARY * MTRDCYCLEMULTIPLIER2      // mtr2
 
 // Motor1
+#define MTR1_PWM_CHAN PWM_CHAN_A
 #define MTR1_AIN1 8      // GPIO8
 #define MTR1_AIN2 7      // GPIO7
-#define MTR1_PWM  6      // GPIO6; PWM3A
+#define MTR1_PWM  6      // GPIO6; PWM3A, Channel A
 // Motor2
-#define MTR2_BIN1 12     // GPIO12
-#define MTR2_BIN2 11     // GPIO11
-#define MTR2_PWM  10     // GPIO10; PWM5A
+//#define MTR2_BIN1 12     // GPIO12
+//#define MTR2_BIN2 11     // GPIO11
+//#define MTR2_PWM  10     // GPIO10; PWM5A
+
+#define MTR2_PWM_CHAN PWM_CHAN_B
+#define MTR2_BIN1 9      // GPIO9
+#define MTR2_BIN2 10     // GPIO10
+#define MTR2_PWM  11     // GPIO11; PWM5B, Channel B
 
 // Default values to load rx_dat_ary (PIO ultrasonic readings) to prevent
 // the vehicle from moving backward when the first forward command is sent
@@ -224,8 +230,10 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 // ***************************
 // LEDs and Switches
 // ***************************
-#define BLUE_LED  3       // GPIO3
-#define BUTTON_GPIO 2    // GPIO2
+//#define BLUE_LED  3       // GPIO3
+//#define BUTTON_GPIO 2    // GPIO2
+#define BLUE_LED  15       // GPIO15
+#define BUTTON_GPIO 14    // GPIO14
 
 // ***************************
 // Bluetooth Low Engery (BLE)
