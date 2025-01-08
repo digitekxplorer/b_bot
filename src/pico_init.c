@@ -48,7 +48,9 @@ void pico_io(void) {
     // Button input
     gpio_init(BUTTON_GPIO);
     gpio_set_dir(BUTTON_GPIO, GPIO_IN);
-    gpio_pull_down(BUTTON_GPIO);    
+//    gpio_pull_down(BUTTON_GPIO);
+    // RP2350- E9 correction: use pull-up because of error in RP2350
+    gpio_pull_up(BUTTON_GPIO); 
     
 
     // ********************************************
