@@ -27,7 +27,8 @@
 // https://punchthrough.com/lightblue/
 
 // Releases:
-// 10/28/2024  A. Baeza  Initial release: V1.0.0
+// 10/28/2024  A. Baeza  Initial release: V1.0
+// 01/23/2025  A. Baeza  See notes below: V1.1
 
 // Updates:
 // July 26, 2024
@@ -129,9 +130,12 @@
 // Jan 8, 2025
 // Modified motor.c to include required change of GPIO11 to PWM_CHAN_B.
 // Minor Version Release V1.1 GitHub.com/digitekxplorer
+// Jan 23, 2025
+// Added ADC connection to monitor and display battery voltage
+
 
 /*
-Copyright (c) <2024> <Al Baeza>
+Copyright (c) <2025> <Al Baeza>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy 
 of this software and associated documentation files (the "Software"), to deal
@@ -272,17 +276,26 @@ static volatile uint32_t pio_rx_irq_counter = 0;
 static volatile uint32_t rx_dat_ary[4];
 static volatile uint32_t rx_dat_avg = 0;
 
-// Pico temperature
-void poll_temp();            // temperature reading
-uint32_t temp_f;             // temperature in deg F
+// ADC Pico poll for temperature and battery voltage
+void adc_poll();            // temperature reading
+// Get ADC measurement
+float get_adc_reading(uint32_t chan); 
+float deg_f;                 // temperature in deg F
+float deg_c;                 // temperature in deg C
+float temp_reading;          // temperature reading
+float batt_volt_flt;         // battery voltage
 
+// pushbutton
 bool pshbttn_fwd = false;    // pushbutton indication
 
 //----------
 // Debug
 //----------
 void dbg_print(uint8_t chr);  // print a single character
-
+// print text and float number
+void dbg_uart_print(float uart_float_num, const char *uart_text) ; // print using UART
+const char volt_message[] = "Battery voltage = ";      // text for battery voltage
+const char temp_message[] = "Temperature deg F = ";    // text for temperature
 
 
 // *****************************************************************
@@ -372,8 +385,19 @@ int main() {
     // Initialise adc for the temp sensor
     // ****************
     adc_init();
-    adc_select_input(ADC_CHANNEL_TEMPSENSOR);
+    static char adc_str[10];
+    // temperature channel
     adc_set_temp_sensor_enabled(true);
+    temp_reading = get_adc_reading(ADC_CHANNEL_TEMPSENSOR);     // temperature
+    
+    deg_c = 27 - (temp_reading - 0.706) / 0.001721;
+    deg_f = (deg_c * 1.8) + 32.0;
+    dbg_uart_print(deg_f, temp_message) ;     // print using UART
+    
+    // Battery voltage measurement
+    batt_volt_flt = get_adc_reading(0);     // ADC A0 for battery voltage
+    dbg_uart_print(batt_volt_flt, volt_message) ;   // print using UART
+
     
     // ****************
     // Pushbutton setup
@@ -597,19 +621,22 @@ static void prvTimerCallback( TimerHandle_t xTimer ) {
       if (!strcmp(blecmdtxt_ptr->ble_input, "bletxt")) {            // Do we have a text message?
          memset(blecmdtxt_ptr->ble_input, 0, sizeof(blecmdtxt_ptr->ble_input)) ;   // clear ble_input[] buffer
 	     // Display updated client message on SSD1306
-	     ssd1306_dsply(FREERTOS_ENABLED, temp_f, blecmdtxt_ptr->client_message);   // new message
+//	     ssd1306_dsply(FREERTOS_ENABLED, deg_f, blecmdtxt_ptr->client_message);   // new message
+	     ssd1306_dsply(FREERTOS_ENABLED, deg_f, blecmdtxt_ptr->client_message, batt_volt_flt);   // new message
+	     // batt_volt_flt
          uart_puts(UART_ID, "vTaskBlinkDefault(): ble_input set to bletxt.\n\r");
       } 
      
       // update temperature every x seconds
       // From: https://github.com/raspberrypi/pico-examples/blob/master/pico_w/bt/standalone/server.c
       if ( hb_counter % 10 == 0) {
-         poll_temp();
+         adc_poll();
          // Update Pico Temperature characteristic (sends to client if notifications enabled)
-         set_characteristic_d_value(temp_f) ;
+         set_characteristic_d_value(deg_f) ;
 		
 	     // Display temperature and client message on SSD1306
-	     ssd1306_dsply(FREERTOS_ENABLED, temp_f, blecmdtxt_ptr->client_message);   // use FreeRTOS delay function
+//	     ssd1306_dsply(FREERTOS_ENABLED, deg_f, blecmdtxt_ptr->client_message);   // use FreeRTOS delay function
+	     ssd1306_dsply(FREERTOS_ENABLED, deg_f, blecmdtxt_ptr->client_message, batt_volt_flt);   // use FreeRTOS delay function
       }    
     }  // end of blinking LED else
 }
@@ -1064,31 +1091,41 @@ static void bleServerTask(void *pv) {
 }
 
 // *****************
-// Pico temperature
+// Pico ADC poll for temperature and battery voltage
 // *****************
 // Raw ADC temperature reading and calculate Pico temperature
-void poll_temp(void) {
-    adc_select_input(ADC_CHANNEL_TEMPSENSOR);
-    uint32_t raw32 = adc_read();
-    const uint32_t bits = 12;
+void adc_poll(void) {
+//    float temp_reading;
 
-    // Scale raw reading to 16 bit value using a Taylor expansion (for 8 <= bits <= 16)
-    uint16_t raw16 = raw32 << (16 - bits) | raw32 >> (2 * bits - 16);
-
-    // ref https://github.com/raspberrypi/pico-micropython-examples/blob/master/adc/temperature.py
-    const float conversion_factor = 3.3 / (65535);
-    float reading = raw16 * conversion_factor;
+    // get temperature reading
+    temp_reading = get_adc_reading(ADC_CHANNEL_TEMPSENSOR);     // ADC A0 for battery voltage
     
     // The temperature sensor measures the Vbe voltage of a biased bipolar diode, connected to the fifth ADC channel
     // Typically, Vbe = 0.706V at 27 degrees C, with a slope of -1.721mV (0.001721) per degree. 
-    float deg_c = 27 - (reading - 0.706) / 0.001721;
+//    float deg_c = 27 - (reading - 0.706) / 0.001721;
+    deg_c = 27 - (temp_reading - 0.706) / 0.001721;
 	// (0°C × 9/5) + 32 = 32°F
 	// (0°C x 1.8) + 32 = 32°F
-    temp_f = (deg_c * 1.8) + 32;
+    deg_f = (deg_c * 1.8) + 32;
+    
+    // Battery voltage measurement
+    batt_volt_flt = get_adc_reading(0) * BATT_VOLT_DIV_FACTOR;     // ADC A0 for battery voltage
+}
 
-//    uart_puts(UART_ID, "Pico temp = ");
-//    print_float(temp_f);
-//    uart_puts(UART_ID, "\r\n");     // debug
+// Get ADC measurement for selected channel
+float get_adc_reading(uint32_t chan) {
+//    float reading;
+    adc_select_input(chan);
+    uint32_t raw32 = adc_read();
+    // Scale raw reading to 16 bit value using a Taylor expansion (for 8 <= bits <= 16)
+    uint16_t raw16 = raw32 << (16 - ADC_NUM_BITS) | raw32 >> (2 * ADC_NUM_BITS - 16);
+    
+    // ref https://github.com/raspberrypi/pico-micropython-examples/blob/master/adc/temperature.py
+//    const float adc_conversion_factor = 3.3 / (65535);
+//    reading = raw16 * ADC_CONV_FACTOR;   // ADC_CONV_FACTOR defined in defs.h
+    return(raw16 * ADC_CONV_FACTOR);   // ADC_CONV_FACTOR defined in defs.h
+    
+//    return(reading);
 }
 
 
@@ -1102,6 +1139,18 @@ void dbg_print(uint8_t chr) {
     uart_putc(UART_ID, '\r');
 }
 
+// Print using UART
+void dbg_uart_print(float uart_float_num, const char *uart_text) {
+    static char adc_str[10];
+    
+    sprintf(adc_str, "%f", uart_float_num) ;      // convert float to a string
+    uart_puts(UART_ID, "\r\n");     // debug   
+//    uart_puts(UART_ID, "Battery voltage = ");
+    uart_puts(UART_ID, uart_text);
+    uart_puts(UART_ID, adc_str);
+    uart_puts(UART_ID, "\r\n");     // debug   
+}
+
 /*
    // Debug
    static char veh_str[10];
@@ -1112,6 +1161,10 @@ void dbg_print(uint8_t chr) {
    
    OR with Al's function
    uart_puts(UART_ID, "Pico temp = ");
-   print_float(temp_f);
-   uart_puts(UART_ID, "\r\n");     // debug      
+   print_float(deg_f);
+   uart_puts(UART_ID, "\r\n");     // debug   
+   
+   // C library functions
+   sprintf(volt_str, "%f", batt_volt_flt) ;      // convert float to a string
+   snprintf(volt_str, sizeof(volt_str), "%.1f", batt_volt_flt);    // one digit to right of decimal   
 */
