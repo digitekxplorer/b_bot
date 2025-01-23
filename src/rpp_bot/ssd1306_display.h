@@ -31,11 +31,13 @@ void ssd1306_mess_short(bool isFreeRTOS_enabled);
 // Long message displayed on SSD1306
 void ssd1306_mess_long(void);
 // Display current temperature and client on SSD1306
-void ssd1306_dsply(bool isFreeRTOS_enabled, int current_temp, char *client_message );
+//void ssd1306_dsply(bool isFreeRTOS_enabled, int current_temp, char *client_message );
+void ssd1306_dsply(bool isFreeRTOS_enabled, int current_temp, char *client_message, float batt_volt_flt );
 // Draw border around the SSD1306 display
 void ssd1306_drawborder(void);
 // Print body of message to SSD1306 display
-void ssd1306_printbody(uint32_t current_temp, char *client_message);
+//void ssd1306_printbody(uint32_t current_temp, char *client_message);
+void ssd1306_printbody(uint32_t current_temp, char *client_message, float batt_volt_flt);
 
 // Private Functions
 // Send a command over I2C to SSD1306
