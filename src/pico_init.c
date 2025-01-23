@@ -14,6 +14,7 @@
 #include "pico/stdlib.h"
 #include "hardware/uart.h"
 #include "hardware/address_mapped.h"
+#include "hardware/adc.h"
 //#include "hardware/gpio.h"
 // Pico W devices use a GPIO on the WIFI chip for the LED,
 // so when building for Pico W, CYW43_WL_GPIO_LED_PIN will be defined
@@ -29,13 +30,7 @@ void pico_io(void) {
     
     // ********************************************
     // Initialize pins for input and output
-/*       
-    // Default Led output   
-    gpio_init(LED_PIN);
-    gpio_set_dir(LED_PIN, GPIO_OUT);
-    gpio_put(LED_PIN, 0);
-*/
-   
+
     // Initialize second LED pin
     gpio_init(BLUE_LED);
     gpio_set_dir(BLUE_LED, GPIO_OUT);
@@ -51,6 +46,13 @@ void pico_io(void) {
 //    gpio_pull_down(BUTTON_GPIO);
     // RP2350- E9 correction: use pull-up because of error in RP2350
     gpio_pull_up(BUTTON_GPIO); 
+    
+    // ********************************************
+    // Initialize pins for ADC input
+    // Make sure GPIO is high-impedance, no pullups etc
+    adc_gpio_init(ADC_A0);
+    // Select ADC input 0 (GPIO26)
+    adc_select_input(BATT_DIV_CHAN);
     
 
     // ********************************************
