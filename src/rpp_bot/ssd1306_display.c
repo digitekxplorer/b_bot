@@ -270,13 +270,16 @@ void ssd1306_mess_long(void) {
 // Display current temperature and client on SSD1306
 // Use FreeRTOS delay function if this function is called after 
 // scheduler has been enabled.
-void ssd1306_dsply(bool isFreeRTOS_enabled, int current_temp, char *client_message ) {
+//void ssd1306_dsply(bool isFreeRTOS_enabled, int current_temp, char *client_message ) {
+void ssd1306_dsply(bool isFreeRTOS_enabled, int current_temp, char *client_message, float batt_volt_flt ) {
+//ssd1306_dsply(FREERTOS_ENABLED, temp_f, blecmdtxt_ptr->client_message, batt_volt_flt);   // new message
 	ClearDisplay();               // clear SSD1306 display
 	ssd1306_drawborder();
 
     if (isFreeRTOS_enabled) {
         // print body of message
-        ssd1306_printbody(current_temp, client_message);
+//        ssd1306_printbody(current_temp, client_message);
+        ssd1306_printbody(current_temp, client_message, batt_volt_flt);
     } else {
         WriteString(13,8,"HELLO Al B");
         UpdateDisplay();
@@ -292,16 +295,34 @@ void ssd1306_drawborder(void) {
 }
 
 // Print body of message to SSD1306 display
-//void ssd1306_printbody(uint32_t current_temp) {
-void ssd1306_printbody(uint32_t current_temp, char *client_message) {
+//void ssd1306_printbody(uint32_t current_temp, char *client_message) {
+void ssd1306_printbody(uint32_t current_temp, char *client_message, float batt_volt_flt) {
     static char temp_str[10];
-    // display temperature
-    WriteString(10,8,"Pico Temp:");  // send FreeRTOS message
-	sprintf(temp_str, "%d", current_temp) ;
-	WriteString(90,8, temp_str);
-	// display message from client (phone)
-	WriteString(10,22,"From Client");
-	WriteString(24,30, client_message);
+    static char volt_str[10];
+    
+    // If we have low battery voltage, display warning.
+    // During programming, the Pico will not be connected to a battery so the voltage 
+    // will be zero so also check for a non-zero value.
+    if (batt_volt_flt > 1.0 & batt_volt_flt < LOW_BATT_WARNING_VAL) {   // warning value defined in defs.h
+//    if (batt_volt_flt < LOW_BATT_WARNING_VAL) {       // use to test LOW_BATT_WARNING_VAL only
+       WriteString(10,16,"LOW BATTERY");    // display low battery warning
+    }
+    else {
+       // Wrtie to every 8 rows (8 pixels per character)
+       // WriteString(Column, Row, Text)
+       
+	   // display message from client (phone)
+	   WriteString(24,8, client_message);
+	   // display temperature
+       WriteString(10,24,"Pico Temp:");  // send FreeRTOS message
+	   sprintf(temp_str, "%d", current_temp) ;   // convert uint32 to string
+	   WriteString(90,24, temp_str);
+	   // dispaly Battery Voltage
+	   WriteString(10,40,"Batt Volt:");
+	   snprintf(volt_str, sizeof(volt_str), "%.1f", batt_volt_flt);    // display one digit to right of decimal
+	   WriteString(90,40, volt_str);
+	}
+	
 	UpdateDisplay();
 }
 
