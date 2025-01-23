@@ -215,25 +215,31 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 #define HCSR04_ECHO  16  // GPIO16
 #define HCSR04_TRIG  17  // GPIO17
 
-/*
-// output is 10 uSec trigger pulse on pin 15
-// input is ultrasonic echo return on pin 14
-#define HCSR04_ECHO  14  // GPIO14
-#define HCSR04_TRIG  15  // GPIO15
-*/
-
 #define SM_START_CMD        5
 
 // HC-SR04 coefficient
 #define HCSR04_COEFF       0.000136    // original
 
+
 // ***************************
 // LEDs and Switches
 // ***************************
-//#define BLUE_LED  3       // GPIO3
-//#define BUTTON_GPIO 2    // GPIO2
 #define BLUE_LED  15       // GPIO15
 #define BUTTON_GPIO 14    // GPIO14
+
+// ***************************
+// ADC
+// ***************************
+#define ADC_A0         26  // GPIO26; battery voltage divider
+#define BATT_DIV_CHAN  0   // battery voltage divider connected to A0
+#define LOW_BATT_WARNING_VAL  6.0   // low battery warning value
+// ADC conversion factor
+#define ADC_CONV_FACTOR   0.0000503548   // 3.3 / 65535
+// Low voltage: voltage divider factor: (4.7K + 3K) / 3K = 2.5667
+#define BATT_VOLT_DIV_FACTOR  2.5667 
+
+// ADC number of conversion bits
+#define ADC_NUM_BITS   12
 
 // ***************************
 // Bluetooth Low Engery (BLE)
