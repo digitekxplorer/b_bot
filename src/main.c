@@ -310,7 +310,7 @@ int main() {
     // ****************
     pico_io();          // setup Pico external LEDs, mtr IO, ...
     pico_uart_init();   // setup UART
-    print_welcome(2);   // send welcome message to UART; number of seconds to delay
+    print_welcome(1);   // send welcome message to UART; number of seconds to delay
     
 #if !defined(i2c_default) || !defined(PICO_DEFAULT_I2C_SDA_PIN) || !defined(PICO_DEFAULT_I2C_SCL_PIN)
 #warning i2c/mpu6050_i2c example requires a board with I2C pins
