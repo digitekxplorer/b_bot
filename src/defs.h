@@ -177,9 +177,12 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 // Motors
 // ***************************
 // Default dutycycle to set speed (1 to 20)
-#define DCYCLE_PRIMARY  3
+//#define DCYCLE_PRIMARY  3
+//#define DCYCLE_TURN     2                   // set to turn speed for consistent speed during turns
 #define DCYCLE_MAX      20
-#define DCYCLE_TURN     2                   // set to turn speed for consistent speed during turns
+// Dutycyles for new rover chassis
+#define DCYCLE_PRIMARY  8
+#define DCYCLE_TURN     6                   // set to turn speed for consistent speed during turns
 // Motor nominal multiplers (nominal=250)
 #define MTRDCYCLEMULTIPLIER1  250          // mtr1
 #define MTRDCYCLEMULTIPLIER2  250          // mtr2
