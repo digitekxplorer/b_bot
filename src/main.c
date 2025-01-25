@@ -132,7 +132,8 @@
 // Minor Version Release V1.1 GitHub.com/digitekxplorer
 // Jan 23, 2025
 // Added ADC connection to monitor and display battery voltage
-
+// Jan 25, 2025
+// Changed motor dutycyles for new rover chassis
 
 /*
 Copyright (c) <2025> <Al Baeza>
