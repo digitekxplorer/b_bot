@@ -157,7 +157,7 @@ void veh_stuct_init() {
     veh_ptr->manual_cmd_mode   = 0;
     veh_ptr->dutyCycle_primary = DCYCLE_PRIMARY;   // PWM duty cycle for motor speed; forward and reverse
     veh_ptr->dutyCycle_turn    = DCYCLE_TURN;      // set to turn speed for consistent speed during turns
-    veh_ptr->veh_turn_dly      = 26;
+    veh_ptr->veh_turn_dly      = TURNDLY_90DEG;
     veh_ptr->active            = false;
     
     // structure: Vehicle Movement FSM parameters
