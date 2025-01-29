@@ -134,6 +134,9 @@
 // Added ADC connection to monitor and display battery voltage
 // Jan 25, 2025
 // Changed motor dutycyles for new rover chassis
+// Jan 29, 2025
+// Modified monitor commands to adjust vehicle speed and turns
+
 
 /*
 Copyright (c) <2025> <Al Baeza>
@@ -334,7 +337,7 @@ int main() {
     // ****************
     // System Structures Setup
     // ****************
-    // Initialize Vehicle parameters
+    // Initialize Vehicle parameters; includes command mode and motor parameters
     veh_stuct_init();
 
     // ****************
@@ -1167,5 +1170,19 @@ void dbg_uart_print(float uart_float_num, const char *uart_text) {
    
    // C library functions
    sprintf(volt_str, "%f", batt_volt_flt) ;      // convert float to a string
-   snprintf(volt_str, sizeof(volt_str), "%.1f", batt_volt_flt);    // one digit to right of decimal   
+   snprintf(volt_str, sizeof(volt_str), "%.1f", batt_volt_flt);    // one digit to right of decimal  
+   
+   // so two ways to send an integer number to UART
+   // First: using C compiler functions to convert number to string, then printing string.
+         static char num_str[5];
+         sprintf(num_str, "%d", (int)ang_result) ;   // if ang_result is a float, convert to string
+         uart_puts(UART_ID, num_str);
+         uart_puts(UART_ID, "\r\n");
+         
+   // Second: using ab custom print function
+         uart_puts(UART_ID, "\r\n");
+         uart_puts(UART_ID, "Turn delay = ");  
+         print_int((int)ang_result);   // must #include print_num.h
+         uart_puts(UART_ID, "\r\n");  
+               
 */
