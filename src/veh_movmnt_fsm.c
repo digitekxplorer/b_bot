@@ -27,7 +27,6 @@ uint32_t veh_state_lt = VEHFORWARD_MAN2;  // Left turn state machine
 uint32_t veh_state_bw = VEHFORWARD_MAN3;  // Backward state machine
 uint32_t turn_cnt_dly = 0;          // count the number of 60mSec measurements
 uint32_t backward_cnt_dly = 0;      // Backward count for number of 60mSec periods; Manual mode
-//uint32_t veh_turn_dly;              // vechicle turn delay in 60 mSec increments
 
 //-----------------------------------------
 // Move forward until obstacle is detected.
@@ -44,7 +43,6 @@ void forward_auto_fsm(void)
 	// Vehicle is stopped and ready to go forward
 	case VEHSTOP_GOFOR_AUTO:
 		motor_forward();                // set to CW
-//		Motor_pin_enable();             // motor driver pins
 		fsm_ptr->veh_state = VEHFORWARD_AUTO;    // next state: Forward
 		break;
 
@@ -64,17 +62,13 @@ void forward_auto_fsm(void)
 	// ********************
 	// Vehicle was moving forward but detected an obstacle less than x cm away.
 	case VEHSTOP_INITBWD_AUTO:
-//		Motor_pin_disable();               // disable outputs to motors but continue PWM
 		veh_stop_cmd();                    // stop motors
-//		GPIO_PORTF_DATA_R &= ~0x0E;        // turn off all three LEDs
-//		GPIO_PORTF_DATA_R |= 0x02;         // turn on Red LED
 		fsm_ptr->veh_state = VEHSTOP_GOBACK_AUTO;        // next state: Stop, then go backward
 		break;
 
 	// Prepare to move vechicle backward
 	case VEHSTOP_GOBACK_AUTO:
 		motor_backward();                 // set to CCW
-//		Motor_pin_enable();               // motor driver pins
 		fsm_ptr->veh_state = VEHBACKWARD_AUTO;          // next state: Backward
 		break;
 
@@ -84,7 +78,6 @@ void forward_auto_fsm(void)
 		if (fsm_ptr->cm >= MINDIS_STOPMTRS) {
 			// Vechicle was moving back away from obstacle but now it is more than x cm
 			// away so stop and initiate a turn.
-//			Motor_pin_disable();            // disable outputs to motors but continue PWM
 			veh_stop_cmd();               // stop motors
 			fsm_ptr->veh_state = VEHSTOP_INITRIGHT_AUTO;  // next state: initiate right turn
 		}
@@ -101,15 +94,13 @@ void forward_auto_fsm(void)
 		// set to default speed for consistent speed during turns
  	    motor_set_dutyCycle(veh_ptr->dutyCycle_turn);   // set motor speeds
 		motor_turnRight();              // set motors for right turn
-//		Motor_pin_enable();             // motor driver pins
 		turn_cnt_dly = 0;               // clr delay counter
 		fsm_ptr->veh_state = VEHSTOP_TURNRIGHT_AUTO;  // next state: process right turn
 		break;
 
 	// Wait until the turn is complete then stop motors and go to prepare forward state
 	case VEHSTOP_TURNRIGHT_AUTO:
-	      if (turn_cnt_dly > TURNDLY_90DEG) {  // delay until turn is complete
-//		  Motor_pin_disable();                 // disable outputs to motors but continue PWM
+	      if (turn_cnt_dly > veh_ptr->veh_turn_dly) {  // delay until turn is complete
 		  veh_stop_cmd();               // stop motors
 		  // restore parameters in use when turn command was issued
 		  motor_set_dutyCycle(veh_ptr->dutyCycle_primary);       // set motor speeds
@@ -148,19 +139,15 @@ void userCmd_rTrn_fsm(void)
 
 	// Vehicle was moving forward but received user command to Turn Right.
 	case VEHFORWARD_MAN1:
-//		Motor_pin_disable();               // disable outputs to motors but continue PWM
 		veh_stop_cmd();               // stop motors
 		// set to default speed for consistent speed during turns
  	    motor_set_dutyCycle(veh_ptr->dutyCycle_turn);   // set motor speeds
-//		GPIO_PORTF_DATA_R &= ~0x0E;        // turn off all three LEDs
-//		GPIO_PORTF_DATA_R |= 0x02;         // turn on Red LED
 		veh_state_rt = VEHSTOP_INITRIGHT_MAN1;     // next state: initiate right turn
 		break;
 
 	// Initiate a turn after moving back from obstacle
 	case VEHSTOP_INITRIGHT_MAN1:
 		motor_turnRight();              // set motors for right turn
-//		Motor_pin_enable();             // motor driver pins
 		turn_cnt_dly = 0;               // clr delay counter
 		veh_state_rt = VEHSTOP_TURNRIGHT_MAN1;  // next state: process right turn
 		break;
@@ -168,7 +155,6 @@ void userCmd_rTrn_fsm(void)
 	// Wait until the turn is complete then stop motors and go to prepare forward state
 	case VEHSTOP_TURNRIGHT_MAN1:
 	  if (turn_cnt_dly > veh_ptr->veh_turn_dly) {  // delay until turn is complete
-//		  Motor_pin_disable();           // disable outputs to motors but continue PWM
 		  veh_stop_cmd();               // stop motors
 		  // restore parameters in use when turn command was issued
 		  motor_set_dutyCycle(veh_ptr->dutyCycle_primary);       // set motor speeds
@@ -200,19 +186,15 @@ void userCmd_lTrn_fsm(void)
 
 	// Vehicle was moving forward but received user command to Turn Left.
 	case VEHFORWARD_MAN2:
-//		Motor_pin_disable();               // disable outputs to motors but continue PWM
 		veh_stop_cmd();               // stop motors
 		// set to default speed for consistent speed during turns
  	    motor_set_dutyCycle(veh_ptr->dutyCycle_turn);   // set motor speeds
-//		GPIO_PORTF_DATA_R &= ~0x0E;        // turn off all three LEDs
-//		GPIO_PORTF_DATA_R |= 0x02;         // turn on Red LED
 		veh_state_lt = VEHSTOP_INITLEFT_MAN2;     // next state: initiate left turn
 		break;
 
 	// Initiate Left Turn
 	case VEHSTOP_INITLEFT_MAN2:
 		motor_turnLeft();               // set motors for Left turn
-//		Motor_pin_enable();             // motor driver pins
 		turn_cnt_dly = 0;               // clr delay counter
 		veh_state_lt = VEHSTOP_TURNLEFT_MAN2;   // next state: process left turn
 		break;
@@ -220,7 +202,6 @@ void userCmd_lTrn_fsm(void)
 	// Wait until the turn is complete then stop motors and go to prepare forward state
 	case VEHSTOP_TURNLEFT_MAN2:
 	  if (turn_cnt_dly > veh_ptr->veh_turn_dly) {  // delay until turn is complete
-//		  Motor_pin_disable();           // disable outputs to motors but continue PWM
 		  veh_stop_cmd();               // stop motors
 		  // restore parameters in use when turn command was issued
 		  motor_set_dutyCycle(veh_ptr->dutyCycle_primary);       // set motor speeds
@@ -252,17 +233,13 @@ void userCmd_bwd_fsm(void)
 
 	// Vehicle was moving forward but received user command to go backward.
 	case VEHFORWARD_MAN3:
-//		Motor_pin_disable();               // disable outputs to motors but continue PWM
 		veh_stop_cmd();               // stop motors
-//		GPIO_PORTF_DATA_R &= ~0x0E;        // turn off all three LEDs
-//		GPIO_PORTF_DATA_R |= 0x02;         // turn on Red LED
 		veh_state_bw = VEHSTOP_GOBACK_MAN3;        // next state: Stop, then go backward
 		break;
 
 	// Prepare to move vechicle backward
 	case VEHSTOP_GOBACK_MAN3:
 		motor_backward();                 // set to CCW
-//		Motor_pin_enable();               // motor driver pins
 		veh_state_bw = VEHBACKWARD_MAN3;          // next state: Backward
 		break;
 
@@ -272,7 +249,6 @@ void userCmd_bwd_fsm(void)
 		if (backward_cnt_dly > 50) {      // if more than 3 seconds moving backward
 			veh_ptr->manual_cmd_mode = 0;          // set to auto obstacle detection mode using HC-SR04
 			backward_cnt_dly = 0;         // clear counter
-//			Motor_pin_disable();          // disable outputs to motors but continue PWM
 			veh_stop_cmd();               // stop motors
 			veh_state_bw = VEHFORWARD_MAN3;    // next state: restart
 		}
