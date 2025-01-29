@@ -14,12 +14,16 @@
 // Include necessary libraries
 #include "pico/stdlib.h"
 #include <stdio.h> 
+#include <string.h>
+#include <ctype.h>
 #include "hardware/pwm.h"
 #include "hardware/pio.h"
 
 #include "cmd_monitor.h"
 #include "motor.h"
 #include "defs.h"
+
+#include "print_num.h"
 
 // Number of Tasks in stack
 #define   NUM_CMDS  14    // Number of operator commnads
@@ -311,7 +315,19 @@ int memory_cmd(char *cp)           // first function of Memory command
 int veh_fwd_cmd(char *cp_input) {
    unsigned char dutyCycle_char = '0';
    
-//   printf("Inside veh_fwd_cmd().\n");
+         // debug
+         uart_puts(UART_ID, "Inside veh_fwd_cmd().\r\n");
+         uart_puts(UART_ID, "Turn delay = ");
+         
+         static char num_str[5];
+         sprintf(num_str, "%d", veh_ptr->veh_turn_dly) ; 
+         uart_puts(UART_ID, num_str);
+         uart_puts(UART_ID, "\r\n");  
+         print_int(veh_ptr->veh_turn_dly);
+         uart_puts(UART_ID, "\r\n"); 
+         // end debug
+
+
 
    if (*cp_input != ',') {
 	   // set to default if no duty cycle value included
@@ -413,27 +429,72 @@ int hc_sr04_disable_cmd() {
 // ********************************************
 // TODO: debug code
 // Vehicle turn delay
+// Example command: trn,090
+// Must be three digits after comma.
 // Routine to adjust the delay in 60 mSec increments during a turn.
 // Adjustment must be decimal.
-int veh_turn_dly_cmd(char *cp)     // multiplier adjustment
+// Motor PWM or duty cycle is proportional to speed.
+// The vehicle movement FSM runs at 60 mSec increments, so we count the number of 60 mSec
+// increments needed to turn the vechicle the desired amount. In other words, the turn
+// resolution is 60 mSec.
+// For TT motors it takes about 7 60 mSec increments to turn 90 degrees (TURNDLY_90DEG = 7).
+// The turn duty cycle (or speed) is set to 5 (DCYCLE_TURN = 5).
+// So if we want to turn 90 degress, the turn delay should be set to 7. For 180, it should be 14.
+int veh_turn_dly_cmd(char *cp) {   // multiplier adjustment
                                    // *cp is pointer to next character in the command string
-   {
-   int turn_angle = 26;
-   float ang_result = 90.0;
+//   int turn_angle = 26;
+   int turn_angle = TURN_ANGLE;    // define in defs.h
+   float ang_dly = TURNDLY_90DEG;
+   unsigned char char_hndrds, char_tens, char_ones;
+//   int parsed_number = 0;
+   // if a comma is included in the command then we have a decimal number following the comma
+   if (*cp == ',') {
+      *cp++;                                   // next character in string
+      char_hndrds = *cp++;                     // store hundreds position value
+      char_tens = *cp++;                       // store tens position value
+      char_ones = *cp;                         // store ones position value
+      
+      if (isdigit(char_ones) && isdigit(char_tens) && isdigit(char_hndrds)) {
+         turn_angle = (char_hndrds - '0') * 100 + (char_tens - '0') * 10 + (char_ones - '0');   // convert to integer
+//         ang_dly = 0.0778 * (float)turn_angle;  // delay = 7/90 * turn_angle
+         ang_dly = TURN_COEFF * (float)turn_angle;  // delay = TURNDLY_90DEG/90 * turn_angle
+         veh_ptr->veh_turn_dly = (int)ang_dly; // used in veh_movmnt_fsm.c
+
+         // debug
+         uart_puts(UART_ID, "Inside veh_turn_dly_cmd().\r\n");
+         uart_puts(UART_ID, "Turn delay = ");
+         
+         static char num_str[5];
+         sprintf(num_str, "%d", veh_ptr->veh_turn_dly) ; 
+         uart_puts(UART_ID, num_str);
+         uart_puts(UART_ID, "\r\n");  
+         print_int(veh_ptr->veh_turn_dly);
+         uart_puts(UART_ID, "\r\n"); 
+         // end debug
+         
+         return (1);
+      } else {
+         veh_ptr->veh_turn_dly = TURNDLY_90DEG;  // used in veh_movmnt_fsm.c
+         return (2);      
+      }
+   }
+      
+/*
+// Original code
    if (*cp == ',')
       {
       *cp++;                                   // next character in string
       turn_angle = string_to_dec_int (cp);     // turn angle converted to integer
-      ang_result = 0.288 * (float)turn_angle;  // delay = 26/90 * turn_angle
-      veh_ptr->veh_turn_dly = (int)ang_result;
+      ang_result = 0.288 * (float)turn_angle;  // delay = x/90 * turn_angle
+      veh_ptr->veh_turn_dly = (int)ang_result; // used on veh_movmnt_fsm.c
       return (1);
       }
-   else
-      {
-	   veh_ptr->veh_turn_dly = TURNDLY_90DEG;
+*/
+   else {
+      veh_ptr->veh_turn_dly = TURNDLY_90DEG;  // used in veh_movmnt_fsm.c
       return (2);
-      }
    }
+}
    
 // ********************************************
 // Vehicle right turn; Manual mode
