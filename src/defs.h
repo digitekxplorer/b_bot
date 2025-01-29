@@ -9,6 +9,8 @@
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
 
+#define TT_MOTORS
+
 // structure: Global Vehicle parameters
 // Initialized in main.c
 // Used in: main.c, monitor.c, and veh_movmnt_fsm.c
@@ -138,7 +140,7 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 // ***************************
 // distance from HC-SR04 to an object in cm
 #define MINDIS_STOPMTRS  10               // min distance is 10 cm, otherwise stop motors
-#define TURNDLY_90DEG    30
+//#define TURNDLY_90DEG    30
 // Pre-processor Directives Section
 // Auto-detectition and Control Vechicle states
 #define VEHSTOP_GOFOR_AUTO      1        // Vehicle stop, then go forward
@@ -177,14 +179,33 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 // Motors
 // ***************************
 // Default dutycycle to set speed (1 to 20)
+// Duty cycle is related to speed, the higher the duty cycle the higher the speed,
+// duty cycle proportional to speed.
+#ifdef TT_MOTORS
+// Dutycyles for new rover chassis with TT Motors
+#define DCYCLE_PRIMARY  5
+#define DCYCLE_TURN     5                   // set to turn speed for consistent speed during turns
+// delay during turn, x/90
+#define TURN_ANGLE      90                 // turn angle used in cmd_monitor.c
+#define TURNDLY_90DEG   7.0
+#define TURN_COEFF      0.0778            // coeff to convert turn angle to 60mSec delays
+
+// Original B_Bot motors
+#else
+#define DCYCLE_PRIMARY  3
+#define DCYCLE_TURN     2                   // set to turn speed for consistent speed during turns
+#define TURN_ANGLE      26                  // turn angle used in cmd_monitor.c
+#define TURNDLY_90DEG   30.0
+#define TURN_COEFF      .288                // coeff to convert turn angle to 60mSec delays
+#endif
+
 //#define DCYCLE_PRIMARY  3
 //#define DCYCLE_TURN     2                   // set to turn speed for consistent speed during turns
 #define DCYCLE_MAX      20
-// Dutycyles for new rover chassis
-#define DCYCLE_PRIMARY  8
-#define DCYCLE_TURN     6                   // set to turn speed for consistent speed during turns
 // Motor nominal multiplers (nominal=250)
-#define MTRDCYCLEMULTIPLIER1  250          // mtr1
+//#define MTRDCYCLEMULTIPLIER1  250          // mtr1
+// Looking from behind the B_Bot and facing forward, mtr1 is on the right side, mtr2 is on left side
+#define MTRDCYCLEMULTIPLIER1  235          // mtr1
 #define MTRDCYCLEMULTIPLIER2  250          // mtr2
 
 #define PERIOD   5000    // measured with scope: pwm freq=25KHz
