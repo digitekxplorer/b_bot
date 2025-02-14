@@ -28,8 +28,6 @@
 #ifndef FREERTOS_CONFIG_H
 #define FREERTOS_CONFIG_H
 
-#include "rp2040_config.h"
-
 /*-----------------------------------------------------------
  * Application specific definitions.
  *
@@ -44,7 +42,7 @@
 
 /* Scheduler Related */
 #define configUSE_PREEMPTION                    1
-#define configUSE_TICKLESS_IDLE                 0
+#define configUSE_TICKLESS_IDLE                 1   //DeepSleep?
 #define configUSE_IDLE_HOOK                     0
 #define configUSE_TICK_HOOK                     0
 #define configTICK_RATE_HZ                      ( ( TickType_t ) 1000 )
@@ -67,20 +65,19 @@
 #define configENABLE_BACKWARD_COMPATIBILITY     1
 #define configNUM_THREAD_LOCAL_STORAGE_POINTERS 5
 
-#define configUSE_TASK_NOTIFICATIONS			1
-
 /* System */
 #define configSTACK_DEPTH_TYPE                  uint32_t
 #define configMESSAGE_BUFFER_LENGTH_TYPE        size_t
 
 /* Memory allocation related definitions. */
-#define configSUPPORT_STATIC_ALLOCATION         0
+#define configSUPPORT_STATIC_ALLOCATION         1
 #define configSUPPORT_DYNAMIC_ALLOCATION        1
 #define configTOTAL_HEAP_SIZE                   (128*1024)
 #define configAPPLICATION_ALLOCATED_HEAP        0
 
 /* Hook function related definitions. */
-#define configCHECK_FOR_STACK_OVERFLOW          0
+//#define configCHECK_FOR_STACK_OVERFLOW          1
+#define configCHECK_FOR_STACK_OVERFLOW          0     // ab
 #define configUSE_MALLOC_FAILED_HOOK            0
 #define configUSE_DAEMON_TASK_STARTUP_HOOK      0
 
@@ -106,13 +103,12 @@
 #define configMAX_API_CALL_INTERRUPT_PRIORITY   [dependent on processor and application]
 */
 
-#if FREE_RTOS_KERNEL_SMP // set by the RP2040 SMP port of FreeRTOS
-/* SMP port only */
-#define configNUM_CORES                         2
-#define configTICK_CORE                         0
-#define configRUN_MULTIPLE_PRIORITIES           1
-#define configUSE_CORE_AFFINITY                 1
-#endif
+// Single Core
+#define configNUMBER_OF_CORES                 1    // ab
+#define configTICK_CORE                       0
+#define configRUN_MULTIPLE_PRIORITIES         0
+#define configUSE_CORE_AFFINITY               0
+//#define configNUM_CORES 			configNUMBER_OF_CORES  //SDK still relies on this   //ab
 
 /* RP2040 specific */
 #define configSUPPORT_PICO_SYNC_INTEROP         1
@@ -143,5 +139,32 @@ to exclude the API function. */
 
 /* A header file that defines trace macro can be included here. */
 
-#endif /* FREERTOS_CONFIG_H */
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+void *pvPortCalloc( size_t nmemb, size_t size );
+void *pvPortRealloc( void *pv, size_t size );
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
+
+#if PICO_RP2350
+#define configENABLE_MPU                        0
+#define configENABLE_TRUSTZONE                  0
+#define configRUN_FREERTOS_SECURE_ONLY          1
+#define configENABLE_FPU                        1
+#define configMAX_SYSCALL_INTERRUPT_PRIORITY    16
+#define configCPU_CLOCK_HZ                      150000000
+// ab
+#define configKERNEL_PROVIDED_STATIC_MEMORY  1                 // ab
+//#define portUSING_MPU_WRAPPERS               0
+//#define configNUMBER_OF_CORES                1
+#endif
+
+
+#endif /* FREERTOS_CONFIG_H */
