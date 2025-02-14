@@ -15,20 +15,29 @@
 // - Ultrasonic ranging: use Raspberry Pi Pico's unique feature called Programmable
 // Input/Output (PIO) to drive HC-SR04 trigger signal and measure echo returns.
 // 
-// Useful commands:
+// Useful commands for RP2040:
 // openocd -f interface/raspberrypi-swd.cfg -f target/rp2040.cfg -c "program b_bot.elf reset exit"
+//
+// Useful commands for RP2350 using Raspberry Pi Debug Probe:
+// sudo openocd -f interface/cmsis-dap.cfg -f target/rp2350.cfg -c "adapter speed 5000" 
+// -c "rp2350.dap.core1 cortex_m reset_config sysresetreq" -c "program ftos_ble.elf verify reset exit"
+// or in one line
+// sudo openocd -f interface/cmsis-dap.cfg -f target/rp2350.cfg -c "adapter speed 5000" -c "rp2350.dap.core1 cortex_m reset_config sysresetreq" -c "program b_bot.elf verify reset exit"
+// Minicom terminal command
 // minicom -b 115200 -o -D /dev/ttyACM0
 //
 // Useful links:
 // https://www.raspberrypi.com
 // https://github.com/raspberrypi
 // https://freertos.org/Documentation/RTOS_book.html
+// https://github.com/raspberrypi/FreeRTOS-Kernel/tree/main
 // https://bluekitchen-gmbh.com/btstack
 // https://punchthrough.com/lightblue/
 
 // Releases:
 // 10/28/2024  A. Baeza  Initial release: V1.0
 // 01/23/2025  A. Baeza  See notes below: V1.1
+// 02/14/2025  A. Baeza  Major release for Pico2 W (RP2350) build
 
 // Updates:
 // July 26, 2024
@@ -136,6 +145,25 @@
 // Changed motor dutycyles for new rover chassis
 // Jan 29, 2025
 // Modified monitor commands to adjust vehicle speed and turns
+//
+// **********************************************************
+// Release V2.0.0
+// Feb 14, 2025
+// Build for Pico2 W with RP2350
+// Modified defs.h: added static to structure definitions
+// Modified main.c: removed used header files like m0plus.h, not needed for RP2350
+//
+// Changes for this release to upgrade B_Bot to Pico2 W (RP2350)
+// Upgraded to Raspberry Pi Pico SDK 2.1.0
+// Upgraded FreeRTOS to use RP2350
+// https://github.com/raspberrypi/FreeRTOS-Kernel/tree/main
+// Verify we are using correct RP2350 port by checking code at the following link:
+// https://github.com/raspberrypi/FreeRTOS-Kernel/tree/main/portable/ThirdParty/GCC/RP2350_ARM_NTZ
+
+// Four other files modified for Pico2 W (RP2350): 
+// Project level files: CMakeLists.txt, FreeRTOS_Kernel_import.cmake, and pico_sdk_import.cmake
+// Source level files: CmakeLists.txt
+// port level: FreeRTOSConfig.h
 
 
 /*
@@ -170,8 +198,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "hardware/pio.h"
 #include "hardware/uart.h"
 #include "hardware/irq.h"
-#include "hardware/regs/m0plus.h"
-#include "hardware/address_mapped.h"
+//#include "hardware/regs/m0plus.h"    // ab rp2040
+//#include "hardware/regs/m33.h"       // ab rp2350
+//#include "hardware/address_mapped.h" // ab not used
 #include "hardware/adc.h"
 // SSD1306 Display
 #include "hardware/i2c.h"
