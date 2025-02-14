@@ -26,8 +26,8 @@ typedef struct {
   uint32_t veh_turn_dly;       // vechicle turn delay in 60 mSec increments
   bool     active;             // vehicle in active command mode (used in monitor.c and main.c)
 }  Veh_params_t;
-//static Veh_params_t veh;              // structure name; for PC build
-Veh_params_t veh;              // structure name
+static Veh_params_t veh;              // structure name; for PC build
+//Veh_params_t veh;              // structure name
 // Pointer to vehicle movement parameters structure.
 #define veh_ptr ((Veh_params_t *)&veh)
 
@@ -56,12 +56,13 @@ Veh_params_t veh;              // structure name
 // Initialized in main.c
 // Used in: main.c and veh_movmnt_fsm.c
 // Using structures we have access to these parameters across multiple files.
+
 typedef struct {
   uint32_t veh_state;          // vehicle movement state machine states
   float cm;                    // HC-SR04 distance measurement in centimeters
 }  Fsm_params_t;               // Structure type
-//static Fsm_params_t fsm;              // structure name; for PC build
-Fsm_params_t fsm;              // structure name
+static Fsm_params_t fsm;              // structure name; for PC build
+//Fsm_params_t fsm;              // structure name
 // Pointer to vehicle movement parameters structure.
 #define fsm_ptr ((Fsm_params_t *)&fsm)
 
@@ -81,7 +82,8 @@ typedef struct {
     uint32_t slice_num1;
     uint32_t slice_num2;
 } pwm_slice_t;
-pwm_slice_t slnum;
+static pwm_slice_t slnum;     // structure name; for PC build
+//pwm_slice_t slnum;
 // Pointer to motor slice number structure.
 #define slnum_ptr ((pwm_slice_t *)&slnum)
 /*
@@ -102,7 +104,8 @@ typedef struct {
   char ble_input[BLE_IN_SIZE];        // commands from client (phone) placed here
   char client_message[BLE_IN_SIZE] ;   // text message displayed on SSD1306
 } Ble_cmd_text_t;
-Ble_cmd_text_t blecmdtxt;
+static Ble_cmd_text_t blecmdtxt;     // structure name; for PC build
+//Ble_cmd_text_t blecmdtxt;
 // Pointer to the BLE cmd and text structure.
 #define blecmdtxt_ptr ((Ble_cmd_text_t *)&blecmdtxt)
 // Example in .../pico-sdk/src/rp2040/hardware_structs/include/hardware/structs adc.h 
