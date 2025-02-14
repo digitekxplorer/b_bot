@@ -29,7 +29,8 @@ target_include_directories(${NAME} PRIVATE
 pico_btstack_make_gatt_header(${NAME} PRIVATE "${CMAKE_CURRENT_LIST_DIR}/GATT_GAP/server_gattfile.gatt")
      
 target_compile_definitions(${NAME} PRIVATE
-                           configNUM_CORES=2
+                           configNUM_CORES=1
+#                           FREE_RTOS_KERNEL_SMP # symmetric multiprocessing SMP
                            ENABLE_BLE           # enable BLE
                            )
 
