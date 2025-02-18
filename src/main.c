@@ -25,6 +25,8 @@
 // sudo openocd -f interface/cmsis-dap.cfg -f target/rp2350.cfg -c "adapter speed 5000" -c "rp2350.dap.core1 cortex_m reset_config sysresetreq" -c "program b_bot.elf verify reset exit"
 // Minicom terminal command
 // minicom -b 115200 -o -D /dev/ttyACM0
+// or
+// minicom -b 115200 -o -D /dev/ttyUSB0
 //
 // Useful links:
 // https://www.raspberrypi.com
@@ -164,6 +166,10 @@
 // Project level files: CMakeLists.txt, FreeRTOS_Kernel_import.cmake, and pico_sdk_import.cmake
 // Source level files: CmakeLists.txt
 // port level: FreeRTOSConfig.h
+//
+// Feb 18, 2025
+// With suggestions from Google AI Studio, I added "extern" to structures in defs.h and
+// defined the structures as global variable in main.c
 
 
 /*
@@ -233,6 +239,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "GATT_GAP/gap_config.h"               // GAP advertisement
 #include "GATT_GAP/service_implementation.h"
 #include "ftos_ble_task.h"
+
+// Definition of the global variable in defs.h
+Veh_params_t veh;           // global variable 'veh'
+Fsm_params_t fsm;           // global variable 'fsm'
+pwm_slice_t slnum;          // global variable 'slum'
+Ble_cmd_text_t blecmdtxt;   // global variable 'blecmdtxt'
 
 // *************
 // FreeRTOS 
