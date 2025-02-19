@@ -32,8 +32,11 @@ typedef struct {
 //static Veh_params_t veh;              // structure name; for PC build
 //Veh_params_t veh;              // structure name
 extern Veh_params_t veh;      // Declaration of the global variable 'veh'
+// Pointer to vehicle movement parameters structure for use with 'arrow' operator
+#define veh_ptr ((Veh_params_t *)&veh)
 
 /*
+// Example of how a structure can be initialized after declaring it.
 extern Veh_params_t veh = {    // Declaration of the global variable 'veh' and initialize
     .manual_cmd_mode   = 0,
     .dutyCycle_primary = DCYCLE_PRIMARY,   // PWM duty cycle for motor speed; forward and reverse
@@ -42,9 +45,6 @@ extern Veh_params_t veh = {    // Declaration of the global variable 'veh' and i
     .active            = false
 };
 */
-
-// Pointer to vehicle movement parameters structure.
-#define veh_ptr ((Veh_params_t *)&veh)
 
 // Example of structures used in timer.h
 //#define timer_hw ((timer_hw_t *)TIMER_BASE)
@@ -79,11 +79,11 @@ typedef struct {
 //static Fsm_params_t fsm;              // structure name; for PC build
 //Fsm_params_t fsm;              // structure name
 extern Fsm_params_t fsm;       // Declaration of the global variable 'fsm'
-// Pointer to vehicle movement parameters structure.
+// Pointer to vehicle movement parameters structure for use with 'arrow' operator
 #define fsm_ptr ((Fsm_params_t *)&fsm)
 
 /*
-// Old method
+// Old method for direct access of structure members with "Dot" operator
 typedef struct {
   uint32_t veh_state;          // vehicle movement state machine states
   float cm;                    // HC-SR04 distance measurement in centimeters
@@ -101,7 +101,7 @@ typedef struct {
 //static pwm_slice_t slnum;     // structure name; for PC build
 //pwm_slice_t slnum;
 extern pwm_slice_t slnum;              // Declaration of the global variable 'slum'
-// Pointer to motor slice number structure.
+// Pointer to motor slice number structure for use with 'arrow' operator
 #define slnum_ptr ((pwm_slice_t *)&slnum)
 /*
 // Old method to define motor slice number structure
@@ -124,7 +124,7 @@ typedef struct {
 //static Ble_cmd_text_t blecmdtxt;     // structure name; for PC build
 //Ble_cmd_text_t blecmdtxt;
 extern Ble_cmd_text_t blecmdtxt;        // Declaration of the global variable 'blecmdtxt'
-// Pointer to the BLE cmd and text structure.
+// Pointer to the BLE cmd and text structure for use with 'arrow' operator.
 #define blecmdtxt_ptr ((Ble_cmd_text_t *)&blecmdtxt)
 // Example in .../pico-sdk/src/rp2040/hardware_structs/include/hardware/structs adc.h 
 //#define adc_hw ((adc_hw_t *)ADC_BASE)
@@ -160,7 +160,7 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 // Vehicle Movements
 // ***************************
 // distance from HC-SR04 to an object in cm
-#define MINDIS_STOPMTRS  10               // min distance is 10 cm, otherwise stop motors
+#define MINDIS_STOPMTRS  15               // min distance is 10 cm, otherwise stop motors
 //#define TURNDLY_90DEG    30
 // Pre-processor Directives Section
 // Auto-detectition and Control Vechicle states
@@ -208,7 +208,7 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 #define DCYCLE_TURN     5                   // set to turn speed for consistent speed during turns
 // delay during turn, x/90
 #define TURN_ANGLE      90                 // turn angle used in cmd_monitor.c
-#define TURNDLY_90DEG   7.0
+#define TURNDLY_90DEG   10.0               // this value compared to counter in veh_movmnt_fsm.c
 #define TURN_COEFF      0.0778            // coeff to convert turn angle to 60mSec delays
 
 // Original B_Bot motors
@@ -226,8 +226,8 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 // Motor nominal multiplers (nominal=250)
 //#define MTRDCYCLEMULTIPLIER1  250          // mtr1
 // Looking from behind the B_Bot and facing forward, mtr1 is on the right side, mtr2 is on left side
-#define MTRDCYCLEMULTIPLIER1  235          // mtr1
-#define MTRDCYCLEMULTIPLIER2  250          // mtr2
+#define MTRDCYCLEMULTIPLIER1  250          // mtr1
+#define MTRDCYCLEMULTIPLIER2  249          // mtr2
 
 #define PERIOD   5000    // measured with scope: pwm freq=25KHz
 #define DUTY_CYC_A DCYCLE_PRIMARY * MTRDCYCLEMULTIPLIER1      // mtr1
