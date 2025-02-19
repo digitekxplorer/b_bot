@@ -169,8 +169,10 @@
 //
 // Feb 18, 2025
 // With suggestions from Google AI Studio, I added "extern" to structures in defs.h and
-// defined the structures as global variable in main.c
-
+// defined the structures as global variables in main.c
+// Feb 19, 2025
+// Modified motor parameters in defs.h for turns and straight motion:TURNDLY_90DEG 
+// and MTRDCYCLEMULTIPLIER1 (or MTRDCYCLEMULTIPLIER2)
 
 /*
 Copyright (c) <2025> <Al Baeza>
