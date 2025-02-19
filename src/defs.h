@@ -278,7 +278,7 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 // ***************************
 #define ADC_A0         26  // GPIO26; battery voltage divider
 #define BATT_DIV_CHAN  0   // battery voltage divider connected to A0
-#define LOW_BATT_WARNING_VAL  6.0   // low battery warning value
+#define LOW_BATT_WARNING_VAL  7.8   // low battery warning value
 // ADC conversion factor
 #define ADC_CONV_FACTOR   0.0000503548   // 3.3 / 65535
 // Low voltage: voltage divider factor: (4.7K + 3K) / 3K = 2.5667
