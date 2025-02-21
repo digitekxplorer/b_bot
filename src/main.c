@@ -173,6 +173,8 @@
 // Feb 19, 2025
 // Modified motor parameters in defs.h for turns and straight motion:TURNDLY_90DEG 
 // and MTRDCYCLEMULTIPLIER1 (or MTRDCYCLEMULTIPLIER2)
+// Feb 20, 2025
+// Added font characters for SSD1306 display
 
 /*
 Copyright (c) <2025> <Al Baeza>
@@ -425,7 +427,8 @@ int main() {
     ClearDisplay();               // clear SSD1306 display
     sleep_ms(500);                // short delay
     ssd1306_drawborder();
-    WriteString(13,8,"HELLO B-Bot");
+    WriteString(13,8,"HELLO B-Bot"); 
+//    WriteString(13,8,"HELLO B_Bot");   // problem with underscore
     UpdateDisplay();
     
     // ****************
