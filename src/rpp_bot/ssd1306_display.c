@@ -381,6 +381,11 @@ static inline int GetFontIndex(uint8_t ch) {
         return  ch - 'A' + 1;
     else if (ch >= '0' && ch <='9')
         return  ch - '0' + 27;
+//    else if (ch == '.')        // a period,   ab
+    else if (ch >= '!' && ch <='/') // other chaacters including a period,   ab
+        return  ch - '!' + 37;      // number of letters and numbers
+    else if (ch == '-')             // underscore,   ab
+        return  52;      // number of letters, numbers, and other characters, row in ssd1306_font.h
     else
         return  0; // Not got that char so space.
 }
