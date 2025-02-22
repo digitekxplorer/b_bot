@@ -43,7 +43,7 @@
 
 // Updates:
 // July 26, 2024
-// A base sofware project has been created for the B-bot rover.  The base design
+// A base sofware project has been created for the B_Bot rover.  The base design
 // includes FreeRTOS for the Raspberry Pi Pico and an RX UART interrupt with a
 // synchronized deferred Task to minimize time in the Interrupt Service Routine (ISR).
 // July 29, 2024
@@ -175,6 +175,11 @@
 // and MTRDCYCLEMULTIPLIER1 (or MTRDCYCLEMULTIPLIER2)
 // Feb 20, 2025
 // Added font characters for SSD1306 display
+// Feb 22, 2025
+// Added more SSD2306 symbols to ssd1306_font.h and ssd1306_display.c
+// Useful website for symbol creation: 
+// https://stmn.itch.io/font2bitmap
+
 
 /*
 Copyright (c) <2025> <Al Baeza>
@@ -427,7 +432,7 @@ int main() {
     ClearDisplay();               // clear SSD1306 display
     sleep_ms(500);                // short delay
     ssd1306_drawborder();
-    WriteString(13,8,"HELLO B-Bot"); 
+    WriteString(13,8,"HELLO B_Bot"); 
 //    WriteString(13,8,"HELLO B_Bot");   // problem with underscore
     UpdateDisplay();
     
