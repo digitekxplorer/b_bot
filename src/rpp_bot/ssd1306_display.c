@@ -272,13 +272,11 @@ void ssd1306_mess_long(void) {
 // scheduler has been enabled.
 //void ssd1306_dsply(bool isFreeRTOS_enabled, int current_temp, char *client_message ) {
 void ssd1306_dsply(bool isFreeRTOS_enabled, int current_temp, char *client_message, float batt_volt_flt ) {
-//ssd1306_dsply(FREERTOS_ENABLED, temp_f, blecmdtxt_ptr->client_message, batt_volt_flt);   // new message
 	ClearDisplay();               // clear SSD1306 display
 	ssd1306_drawborder();
 
     if (isFreeRTOS_enabled) {
         // print body of message
-//        ssd1306_printbody(current_temp, client_message);
         ssd1306_printbody(current_temp, client_message, batt_volt_flt);
     } else {
         WriteString(13,8,"HELLO Al B");
@@ -295,7 +293,6 @@ void ssd1306_drawborder(void) {
 }
 
 // Print body of message to SSD1306 display
-//void ssd1306_printbody(uint32_t current_temp, char *client_message) {
 void ssd1306_printbody(uint32_t current_temp, char *client_message, float batt_volt_flt) {
     static char temp_str[10];
     static char volt_str[10];
@@ -330,18 +327,15 @@ void ssd1306_printbody(uint32_t current_temp, char *client_message, float batt_v
 // Private Functions  (static functions)
 // ***************************************************
 static void SendCommand(uint8_t cmd) {
-//void SendCommand(uint8_t cmd) {
     uint8_t buf[] = {0x00, cmd};
     i2c_write_blocking(I2C_PORT, DEVICE_ADDRESS, buf, 2, false);
 }
 
 static void SendCommandBuffer(uint8_t *inbuf, int len) {
-//void SendCommandBuffer(uint8_t *inbuf, int len) {
     i2c_write_blocking(I2C_PORT, DEVICE_ADDRESS, inbuf, len, false);
 }
 
 static void SetPixel(int x,int y, bool on) {
-//void SetPixel(int x,int y, bool on) {
     assert(x >= 0 && x < SSD1306_LCDWIDTH && y >=0 && y < SSD1306_LCDHEIGHT);
 
     // The calculation to determine the correct bit to set depends on which address
@@ -368,38 +362,41 @@ static void SetPixel(int x,int y, bool on) {
 }
 
 static uint8_t reverse(uint8_t b) {
-//uint8_t reverse(uint8_t b) {
    b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
    b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
    b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
    return b;
 }
 
+// Index to font
+// The returned value is the row number in ssd1306_font.h
 static inline int GetFontIndex(uint8_t ch) {
-//inline int GetFontIndex(uint8_t ch) {
+    // upper case letters
     if (ch >= 'A' && ch <='Z')
-        return  ch - 'A' + 1;
-    else if (ch >= '0' && ch <='9')
+        return  ch - 'A' + 1;        // 65 thru 90
+    // numbers
+    else if (ch >= '0' && ch <='9')  // 48 thru 57
         return  ch - '0' + 27;
-//    else if (ch == '.')        // a period,   ab
-    else if (ch >= '!' && ch <='/') // other chaacters including a period,   ab
-        return  ch - '!' + 37;      // number of letters and numbers
-    else if (ch == '-')             // underscore,   ab
-        return  52;      // number of letters, numbers, and other characters, row in ssd1306_font.h
+    // symbols after numbers added by ab
+    // math and more symbols :;<=>?@
+    else if (ch >= ':' && ch <='@')  // 58 thru 64
+        return  ch - ':' + 37;
+    // more symbols 
+    else if (ch >= '!' && ch <='/') // 33 thru 47
+        return  ch - '!' + 44; 
+    // symbol group that includes underscore
+    else if (ch >= '[' && ch <='_') // 91 thru 95
+        return  ch - '[' + 59;     
     else
         return  0; // Not got that char so space.
 }
 
-//static uint8_t reversed[sizeof(font)] = {0};
-
 static void FillReversedCache() {
-//void FillReversedCache() {
     // calculate and cache a reversed version of fhe font, because I defined it upside down...doh!
     for (int i=0;i<sizeof(font);i++)
         reversed[i] = reverse(font[i]);
 }
 
-//uint16_t ExpandByte(uint8_t b) {
 static uint16_t ExpandByte(uint8_t b) {
     uint16_t w = 0;
     for (int i=7;i>=0;i--) {
