@@ -171,6 +171,9 @@ void veh_stuct_init() {
     
     // char array of client message displayed on SSD1306
     memcpy(blecmdtxt_ptr->client_message, "Hi Alfredo", 10) ;
+//    memcpy(blecmdtxt_ptr->client_message, "!#$%&'()*+,-./", 14) ;   // test for special characters
+//     memcpy(blecmdtxt_ptr->client_message, ":;<=>?@+,-./", 12) ;   // test for special characters
+//    memcpy(blecmdtxt_ptr->client_message, "z[ ]^_", 6) ;   // test for special characters
 }
 
 
