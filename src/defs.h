@@ -11,6 +11,14 @@
 
 #define TT_MOTORS
 
+// Debug
+//#define UART_LOG    // send debug message to UART
+
+// BLE buffer sizes
+#define BLECMD_BUFFER_SIZE 64
+#define CLIENT_MESSAGE_BUFFER_SIZE 128
+
+
 // ***************************
 // Global Vehicle structures
 // ***************************
@@ -28,6 +36,7 @@ typedef struct {
   uint32_t dutyCycle_turn;     // PWM duty cycle for motor speed; used when turning
   uint32_t veh_turn_dly;       // vechicle turn delay in 60 mSec increments
   bool     active;             // vehicle in active command mode (used in monitor.c and main.c)
+  bool     led_pcb_on;         // B_Bot PCB LED status
 }  Veh_params_t; 
 //static Veh_params_t veh;              // structure name; for PC build
 //Veh_params_t veh;              // structure name
@@ -114,12 +123,15 @@ struct pwm_slice_t {
 extern struct pwm_slice_t slnum;
 */
 
-#define BLE_IN_SIZE 20
+//#define BLE_IN_SIZE 20
 // BLE input, either commands or text to be display on SSD1306
 // Use structure pointers to access shared BLE cmd and text structure members across multiple files
 typedef struct {
-  char ble_input[BLE_IN_SIZE];        // commands from client (phone) placed here
-  char client_message[BLE_IN_SIZE] ;   // text message displayed on SSD1306
+  char ble_input[BLECMD_BUFFER_SIZE];        // commands from client (phone) placed here
+  char client_message[CLIENT_MESSAGE_BUFFER_SIZE] ;  // text message displayed on SSD1306
+  bool is_cltCmd                   ;  // do we have a client command
+  bool is_cltTxt                   ;  // do we have a client message
+  bool is_pcbLed                   ;  // did client press LED on or off
 } Ble_cmd_text_t;
 //static Ble_cmd_text_t blecmdtxt;     // structure name; for PC build
 //Ble_cmd_text_t blecmdtxt;
@@ -153,8 +165,6 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 #define ADC_CHANNEL_TEMPSENSOR 4
 #define FREERTOS_ENABLED true   // enable to use FreeRTOS delay function
 
-// Debug
-#define PRINT_MESS    // // print debugging message
 
 // ***************************
 // Vehicle Movements
