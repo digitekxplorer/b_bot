@@ -3,6 +3,7 @@ add_executable(${NAME}
                pico_init.c
                cmd_monitor.c
                veh_movmnt_fsm.c
+               hcsr04.c
                )
        
 pico_generate_pio_header(${NAME} ${CMAKE_CURRENT_LIST_DIR}/hcsr04.pio)
