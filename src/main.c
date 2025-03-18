@@ -26,6 +26,7 @@
 // Minicom terminal command
 // minicom -b 115200 -o -D /dev/ttyACM0
 // or
+// Use following with USB to UART converter
 // minicom -b 115200 -o -D /dev/ttyUSB0
 //
 // Useful links:
@@ -179,6 +180,13 @@
 // Added more SSD2306 symbols to ssd1306_font.h and ssd1306_display.c
 // Useful website for symbol creation: 
 // https://stmn.itch.io/font2bitmap
+// Mar 12, 2025
+// Working on BLE functions. Modified server_gattfile.gatt, service_implementation.h
+// Mar 16, 2025
+// Updated vBLEinput_HandlerTask(). 3 options: command, message, Led control
+// Mar 17, 2025
+// Updated service_implementation.h per suggestions from Google Gemini to define 
+// string buffers and buffer sizes. Limit buffer copy to max buffer sizes.
 
 
 /*
@@ -307,14 +315,6 @@ static btstack_packet_callback_registration_t hci_event_callback_registration;
 
 // Some data that we will communicate over Bluetooth
 static int hb_counter = 0 ;
-
-// We send data as formatted strings (just like a serial console)
-static char characteristic_a_tx[100] ;
-static char characteristic_b_rx[100] ;      // commands from client (phone) placed here
-static char characteristic_c_tx[5] ;
-static char characteristic_d_tx[100] ;
-static char characteristic_e_rx[100] ;      // text from client (phone) placed here
-
 
 // ********************
 // Function prototypes and local variables
@@ -555,9 +555,42 @@ int main() {
 // ********************************
 // FreeRTOS Tasks
 // ********************************
+/*
+// B_Bot Commands
+void app_set(void) {                   // initialize command array
+   command[0].cmnd = "mem";            // memory command
+   command[1].cmnd = "fwd";            // vehicle forward command; auto mode
+   command[2].cmnd = "stp";            // vehicle stop command; turn off motors command
+   command[3].cmnd = "rev";            // Manual mode, vehicle reverse movement
+   command[4].cmnd = "epw";            // Enable motor PWM
+   command[5].cmnd = "dpw";            // Disable motor PWM
+   command[6].cmnd = "son";            // enable 10 uSec HC-SR04 ultrasonic trigger pulse
+   command[7].cmnd = "sof";            // disable 10 uSec HC-SR04 ultrasonic trigger pulse
+   command[8].cmnd = "trn";            // motor turn delay in 60 mSec increments
+   command[9].cmnd = "hlt";            // Vehicle Halt command; stop motors and HC-SR04
+   command[10].cmnd = "rgt";           // Manual mode, vehicle Right turn
+   command[11].cmnd = "lft";           // Manual mode, vehicle Left turn
+   command[12].cmnd = "bwd";           // Manual mode, vehicle backward movement
+   command[13].cmnd = "spd";           // configure PWM duty cycle to control speed
+*/
 
-// User input using BLE either commands or text messages; Handler Task
-// Use Notification instead of semaphore 
+// *****************
+// BLE Event Handler
+// *****************
+// Magic happens here: Intersection of B_Bot code, FreeRTOS, and BTstack
+// Also, service_implementation.h important for BLE events.
+// BLE user input, either commands or text messages; Handler Task
+// Use Notification instead of semaphore
+// There are 3 possible types of B_Bot BLE events:
+// 1) Command (e.g., "fwd", "hlt", "rgt", "lft", "rev", "mem", "trn", "stp", "epw", "dpw", "son", "sof", "spd")
+// 2) Message (e.g., "Hi Al")
+// 3) Led Control (e.g., "on", "off") 
+//
+// User input from client (cell phone), either a command, text message, or Led control.
+// Text message and command will be displayed on the SSD1306. Check for the flag blecmdtxt_ptr->is_cltCmd 
+// and if it is true we have a command that will be decoded and executed.  
+// If it is a text message then it will be displayed on the SSD1306 and nothing has to be done. 
+// The blecmdtxt_ptr->is_cltCmd flag is update in service_implementation.h
 void vBLEinput_HandlerTask( void * pvParameters ) {
     static uint32_t  valid_command;             // valid command indicator
     // Implement this task within an infinite loop.
@@ -568,37 +601,98 @@ void vBLEinput_HandlerTask( void * pvParameters ) {
         // a notification.
         if( ulTaskNotifyTake( pdFALSE, portMAX_DELAY ) != 0 ) {
           // To get here the event must have occurred.
-/*
-          uart_puts(UART_ID, "Task_Handler: Text command from client\n\r");         
-          uart_puts(UART_ID, "ble_input from client; inside ftos_tasks: ");
+
+#ifdef UART_LOG
+          uart_puts(UART_ID, "Task_Handler: command or message from client\n\r");
+          // send command to uart         
+          uart_puts(UART_ID, "ble_input from client: ");
           uart_puts(UART_ID, blecmdtxt_ptr->ble_input);
           uart_puts(UART_ID, "\n\r");
-          uart_puts(UART_ID, "client_message: ");
+          // send text to uart
+          uart_puts(UART_ID, "client_message from client: ");
           uart_puts(UART_ID, blecmdtxt_ptr->client_message);
           uart_puts(UART_ID, "\n\r");
-*/          
-          // We have user input from client (cell phone). Either a command or text message.
-          // Text message will be displayed on the SSD1306. Check ble_input[] for "bletxt" and if
-          // that is not true we have a command that will be decoded and executed.  If it 
-          // is a text message then it will be displayed according to code in vTaskBlinkDefault() 
-          // in main.c. 
-          if (strcmp(blecmdtxt_ptr->ble_input, "bletxt")) {            // Do we have a command or text message?
+#endif
+
+          // ************
+          // First option: Command
+          // ************
+          // Decode and execute valid commands
+          if (blecmdtxt_ptr->is_cltCmd == true) {             // Do we have a command or text message?
             // Check operator command and execute if valid
             valid_command = cmd_deco (blecmdtxt_ptr->ble_input, TRUE);   //  decode and execute command
             check_ctrl_stack();
             if (valid_command==0) {
-                // Not a valid command so assume it is a message to be displayed on the SSD1306
+                // Not a valid command so assume it is a message to be displayed on UART
                 // Message should already be in the client_message[] buffer; done in service_implementation.h
+#ifdef UART_LOG 
                 uart_puts(UART_ID, "Not a BLE valid command.\r\n");
+#endif
             }
             else {
+#ifdef UART_LOG 
                 uart_puts(UART_ID, "BLE valid command.\r\n");
+#endif
             }
-          }    // end of command else
-          
+
+            // Prepare to display the command on the SSD1306
+            // clear client_message buffer
+            memset(blecmdtxt_ptr->client_message, 0, sizeof(blecmdtxt_ptr->client_message)) ;
+            // void *memcpy(void *dest, const void *src, size_t n)
+            memcpy(blecmdtxt_ptr->client_message, "Cmd: ", 5);
+            for (int jj=0; jj<5; jj++) {
+                blecmdtxt_ptr->client_message[jj + 5] = blecmdtxt_ptr->ble_input[jj];
+            }
+            
+            blecmdtxt_ptr->is_cltCmd = false;    // get ready for next BLE client event
+          }    // end of command 
+
+          // ************
+          // Second option: Message
+          // ************  
+          // Nothing has to be done, the message is ready to be displayed on
+          // the SSD1306.
+          if (blecmdtxt_ptr->is_cltTxt == true) { 
+            blecmdtxt_ptr->is_cltTxt = false;    // get ready for next BLE client event
+          }
+
+          // for both command or message, text will be displayed on the SSD1306
+#ifdef UART_LOG 
+          uart_puts(UART_ID, "Displayed on SSD1306: ");
+          uart_puts(UART_ID, blecmdtxt_ptr->client_message);
+          uart_puts(UART_ID, "\n\r");       uart_puts(UART_ID, "\n\r");
+#endif 
+
+
+          // ************
+          // Third option: Led Control
+          // ************
+          // Check PCB LED control
+          if (blecmdtxt_ptr->is_pcbLed == true) {            // did client press LED on or off
+
+            // Did the user press On or Off
+            if ( veh_ptr->led_pcb_on == true ) {
+              gpio_put(LED_EX1, 1);
+              set_characteristic_c_value( "on" );    // update in service_implementation.h
+//              set_characteristic_c_value( 1 );    // update in service_implementation.h
+            } else {
+              gpio_put(LED_EX1, 0);
+              set_characteristic_c_value( "off" );   // update in service_implementation.h
+//              set_characteristic_c_value( 0 );   // update in service_implementation.h
+            }
+            
+            blecmdtxt_ptr->is_pcbLed = false;    // get ready for next BLE client event
+
+#ifdef UART_LOG
+            uart_puts(UART_ID, "PCB LED control pressed.\r\n");
+#endif
+          }
+
         }  // end of notification loop         
     }  // end of for loop 
 }  // end handler task
+
+
 
 // Get xBLEinput_HandlerTask from main.c and send to service_implementation.h.
 // xBLEinput_HandlerTask used to communicate between:
@@ -672,14 +766,17 @@ static void prvTimerCallback( TimerHandle_t xTimer ) {
       // Update Counter characteristic (sends to client if notifications enabled)
       set_characteristic_a_value(hb_counter) ;
      
-      // If ble_input == "bletxt" display the new message
-      if (!strcmp(blecmdtxt_ptr->ble_input, "bletxt")) {            // Do we have a text message?
+      // If a text message from client display the new message
+      if (blecmdtxt_ptr->is_cltCmd == false) {             // Do we have a command or text message?
+//      if (!strcmp(blecmdtxt_ptr->ble_input, "bletxt")) {            // Do we have a text message?
          memset(blecmdtxt_ptr->ble_input, 0, sizeof(blecmdtxt_ptr->ble_input)) ;   // clear ble_input[] buffer
-	     // Display updated client message on SSD1306
-//	     ssd1306_dsply(FREERTOS_ENABLED, deg_f, blecmdtxt_ptr->client_message);   // new message
-	     ssd1306_dsply(FREERTOS_ENABLED, deg_f, blecmdtxt_ptr->client_message, batt_volt_flt);   // new message
-	     // batt_volt_flt
-         uart_puts(UART_ID, "vTaskBlinkDefault(): ble_input set to bletxt.\n\r");
+	 // Display updated client message on SSD1306
+	 ssd1306_dsply(FREERTOS_ENABLED, deg_f, blecmdtxt_ptr->client_message, batt_volt_flt);   // new message
+	 // batt_volt_flt
+#ifdef UART_LOG
+         // Disabled because it is called by Timer, to much
+//         uart_puts(UART_ID, "Inside prvTimerCallback().\n\r");
+#endif
       } 
      
       // update temperature every x seconds
@@ -714,7 +811,7 @@ static void vUartRxInterruptHandler() {
     // time in this ISR.
     uart_set_irq_enables(UART_ID, false, false);  // disable uart rx & tx interrupts
 
-#ifdef PRINT_MESS        
+#ifdef UART_LOG        
     dbg_print('G');   // debug point
 #endif    
 
@@ -755,7 +852,7 @@ static void vUartRxDeferredIntrHandlerTask( void * pvParameters ) {
 
           // To get here the event must have occurred.  Process the event (in this
           // case just print out a message).
-#ifdef PRINT_MESS        
+#ifdef UART_LOG        
           dbg_print('D');   // debug point
 #endif
           while (uart_is_readable(UART_ID)) {     // do we have RX data?
@@ -769,7 +866,7 @@ static void vUartRxDeferredIntrHandlerTask( void * pvParameters ) {
             }
           }  // end while loop
         
-#ifdef PRINT_MESS
+#ifdef UART_LOG
           uart_puts(UART_ID, "UART RX Deferred Interrupt Handler task - Processing event.\r\n");
 #endif
         
@@ -780,13 +877,13 @@ static void vUartRxDeferredIntrHandlerTask( void * pvParameters ) {
 
           if (valid_command==0) {
             // assume it is a message from the client and print to SSD1306
-#ifdef PRINT_MESS
+#ifdef UART_LOG
             uart_puts(UART_ID, "Not a valid command.\r\n");
 #endif
 //            cmd_len_uart5 = 0;      // not a valid command
           }
           else {
-#ifdef PRINT_MESS
+#ifdef UART_LOG
             uart_puts(UART_ID, "UART RX valid command.\r\n");
 #endif
           }
@@ -836,7 +933,7 @@ static void vPioRxInterruptHandler() {
     hw_clear_bits(&pio0_hw->inte0, 0u << 0);  // disable interrupt
     irq_set_enabled(PIO0_IRQ_0, false);                 // disable irq at NVIC
 
-#ifdef PRINT_MESS        
+#ifdef UART_LOG        
     dbg_print('H');   // debug point
 #endif
     
@@ -876,7 +973,7 @@ static void vPioRxDeferredIntrHandlerTask( void * pvParameters ) {
           // To get here the event must have occurred.  Process the event (in this
           // case just print out a message).
 
-#ifdef PRINT_MESS        
+#ifdef UART_LOG        
           uart_puts(UART_ID, "PIO FIFO RX Deferred Interrupt Handler task - Processing event.\r\n");
 #endif
 
@@ -892,9 +989,11 @@ static void vPioRxDeferredIntrHandlerTask( void * pvParameters ) {
           
           rx_dat_avg = rx_dat_sum/4;
           if (indx=3) {
+#ifdef UART_LOG  
             uart_puts(UART_ID, "PIO RX Data Average = ");
             print_int(rx_dat_avg);
             uart_puts(UART_ID, "\r\n");      // debug
+#endif
             rx_dat_sum = 0;
             
             // Display average distance.
@@ -909,9 +1008,11 @@ static void vPioRxDeferredIntrHandlerTask( void * pvParameters ) {
             // - the sound travels from the HCSR04 to the object and back (twice the distance)
             // we can calculate the distance in cm by multiplying with 0.000136
             fsm_ptr->cm = (float)avg_clk_cycles * HCSR04_COEFF;    // HCSR04_COEFF defined in defs.h
+#ifdef UART_LOG 
             uart_puts(UART_ID, "cm = ");
             print_float(fsm_ptr->cm);
             uart_puts(UART_ID, "\r\n");     // debug
+#endif
           }
 
           // To avoid vechicle dither when cm = MINDIS_STOPMTRS, subtract 2 cm
@@ -980,7 +1081,7 @@ static void vPshbttnInterruptHandler() {
 //    gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_RISE, false, &vPshbttnInterruptHandler);
     gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_FALL, false, &vPshbttnInterruptHandler);
     
-#ifdef PRINT_MESS        
+#ifdef UART_LOG        
     dbg_print('K');   // debug point
 #endif
 
@@ -1011,14 +1112,14 @@ static void vPshbttnDeferredIntrHandlerTask( void * pvParameters ) {
           // To get here the event must have occurred.  Process the pushbutton event
           // to either start moving forward or stop
 
-#ifdef PRINT_MESS
+#ifdef UART_LOG
           uart_puts(UART_ID, "Pushbutton Deferred Interrupt Handler task - Processing event.\r\n");
 #endif
 
           vTaskDelay(5);        // FreeRTOS delay; debounce for 5 mSec
 //          if (gpio_get(BUTTON_GPIO)) {  // read pushbutton status after debounce delay
           if (!gpio_get(BUTTON_GPIO)) {  // read pushbutton status after debounce delay
-#ifdef PRINT_MESS
+#ifdef UART_LOG
 //             uart_puts(UART_ID, "Pushbutton still HIGH after debounce delay.\r\n");
              uart_puts(UART_ID, "Pushbutton still LOW after debounce delay.\r\n");
 #endif  
@@ -1026,7 +1127,7 @@ static void vPshbttnDeferredIntrHandlerTask( void * pvParameters ) {
              // Are we in pushbutton forward mode  
              // if Vehicle is already active, send 'stop' and HC-SR04 off commands       
              if ( pshbttn_fwd == true ) {  
-#ifdef PRINT_MESS
+#ifdef UART_LOG
                 uart_puts(UART_ID, "Vehicle is in active mode.\r\n");
 #endif          
                 // when pushbutton is pressed and already active, send 'stop' command
@@ -1038,7 +1139,7 @@ static void vPshbttnDeferredIntrHandlerTask( void * pvParameters ) {
              }
              // if Vehicle is not active, send 'forward' command to start moving
              else {                                                    // Vehicle is NOT active
-#ifdef PRINT_MESS
+#ifdef UART_LOG
                 uart_puts(UART_ID, "Vehicle is NOT in active mode.\r\n");
 #endif 
 
@@ -1052,8 +1153,7 @@ static void vPshbttnDeferredIntrHandlerTask( void * pvParameters ) {
           }         // end of pushbutton high 
           
           else {
-#ifdef PRINT_MESS
-//             uart_puts(UART_ID, "Pushbutton LOW after debounce delay.\r\n");
+#ifdef UART_LOG
              uart_puts(UART_ID, "Pushbutton HIGH after debounce delay.\r\n");
 #endif              
           }
@@ -1085,7 +1185,7 @@ static void uart_irq_setup(int UART_IRQ) {
         uint8_t ch = uart_getc(UART_ID);    // read from UART0 data register
         uart_putc(UART_ID, ch);
     }
-    uart_puts(UART_ID, "\r\n");   // debug
+//    uart_puts(UART_ID, "\r\n");   // debug
 
 }
 
@@ -1118,7 +1218,7 @@ static void bleServerTask(void *pv) {
   l2cap_init(); // Set up L2CAP and register L2CAP with HCI layer
   sm_init(); // setup security manager
 
-#ifdef PRINT_MESS        
+#ifdef UART_LOG        
   dbg_print('T');   // debug point
 #endif  
   
@@ -1127,9 +1227,7 @@ static void bleServerTask(void *pv) {
   att_server_init(profile_data, NULL, NULL);   
 
   // Instantiate our custom service handler
-  custom_service_server_init( characteristic_a_tx, characteristic_b_rx,
-                              characteristic_c_tx, characteristic_d_tx,
-                              characteristic_e_rx) ;
+  custom_service_server_init();   // moved buffer definitions to severice_implementation.h
 
   // inform about BTstack state
   hci_event_callback_registration.callback = &packet_handler; // setup callback for events
