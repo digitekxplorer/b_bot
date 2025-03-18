@@ -31,7 +31,6 @@
 
 #define   SERBUFSIZE 1024
 
-//#define   PRINT_MESSAGE_LOG  1
 
 // *******************
 // Monitor variables
@@ -161,7 +160,7 @@ unsigned int cmd_deco (unsigned char operator_input[], unsigned int exe_cmd)
 		}
 	if (command_found == false)
 	   {
-#ifdef PRINT_MESSAGE_LOG
+#ifdef UART_LOG
 //       printf("Invalid Command.\n");
        uart_puts(UART_ID, "Invalid Command..\r\n");
 #endif
@@ -197,7 +196,7 @@ unsigned int rep_cmd_deco (unsigned char operator_input[], unsigned char operato
 void push_task (int (*func) (), int parm)
    {
    if (tsk_stkptr >= TASK_SIZE) {
-#ifdef PRINT_MESSAGE_LOG
+#ifdef UART_LOG
 //	  UART0_OutString(mess06);
 //	  UART0_sendCRLF();
 #endif
