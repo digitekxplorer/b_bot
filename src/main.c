@@ -187,6 +187,8 @@
 // Mar 17, 2025
 // Updated service_implementation.h per suggestions from Google Gemini to define 
 // string buffers and buffer sizes. Limit buffer copy to max buffer sizes.
+// Mar 24, 2025
+// Added Watchdog reset; timer task in FreeRTOS; define timeout in defs.h
 
 
 /*
@@ -221,6 +223,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "hardware/pio.h"
 #include "hardware/uart.h"
 #include "hardware/irq.h"
+#include "hardware/watchdog.h"
 //#include "hardware/regs/m0plus.h"    // ab rp2040
 //#include "hardware/regs/m33.h"       // ab rp2350
 //#include "hardware/address_mapped.h" // ab not used
@@ -269,8 +272,9 @@ Ble_cmd_text_t blecmdtxt;   // global variable 'blecmdtxt'
 //
 // The timer handles are used inside the callback function so 
 // these timers are given file scope.
-static TimerHandle_t xOneShotTimer;
-static TimerHandle_t xBlueLedReloadTimer;
+static TimerHandle_t xOneShotTimer;           // one shot (for testing)
+static TimerHandle_t xBlueLedReloadTimer;     // LED
+static TimerHandle_t xWatchdogReloadTimer;    // watchdog
 
 // Function Prototypes for FreeRTOS Tasks and Callbacks
 // User input using BLE either commands or text messages; Handler Task
@@ -351,6 +355,8 @@ void dbg_uart_print(float uart_float_num, const char *uart_text) ; // print usin
 const char volt_message[] = "Battery voltage = ";      // text for battery voltage
 const char temp_message[] = "Temperature deg F = ";    // text for temperature
 
+int callbck_cnt = 0;
+
 
 // *****************************************************************
 // *****************************************************************
@@ -359,12 +365,30 @@ const char temp_message[] = "Temperature deg F = ";    // text for temperature
 int main() {
     stdio_init_all();   // instead of using this function initialize UART manually
 
+    // Watchdog reset
+    if (watchdog_enable_caused_reboot()) {
+        printf("Rebooted by Watchdog!\n");
+//        return 0;
+    } else {
+        printf("Clean boot\n");
+    }
+
     // ****************
     // Pico Setup
     // ****************
     pico_io();          // setup Pico external LEDs, mtr IO, ...
     pico_uart_init();   // setup UART
     print_welcome(1);   // send welcome message to UART; number of seconds to delay
+
+/*
+    // Watchdog reset
+    if (watchdog_enable_caused_reboot()) {
+        printf("Rebooted by Watchdog!\n");
+//        return 0;
+    } else {
+        printf("Clean boot\n");
+    }
+*/
     
 #if !defined(i2c_default) || !defined(PICO_DEFAULT_I2C_SDA_PIN) || !defined(PICO_DEFAULT_I2C_SCL_PIN)
 #warning i2c/mpu6050_i2c example requires a board with I2C pins
@@ -462,13 +486,21 @@ int main() {
 //    gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_RISE, true, &vPshbttnInterruptHandler);
     gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_FALL, true, &vPshbttnInterruptHandler);
 
+    // ****************
+    // Watchdog Enable
+    // ****************
+    // Configure and start the watchdog timer
+    watchdog_enable(WATCHDOG_TIMEOUT_MS, 1); // Timeout in milliseconds, pause on debug = true
+
     // *************************************************
     // FreeRTOS setup
     // *************************************************
     // Timer tasks
-    BaseType_t xTimer1Started, xTimer7SegStarted;
+    BaseType_t xTimer1Started;
     // Blinking LED timer
     BaseType_t xTimerBlueLedStarted;
+    // Watchdog timer update()
+    BaseType_t xTimerWatchdogStarted;
     
 
     // ****************
@@ -486,8 +518,15 @@ int main() {
     xBlueLedReloadTimer = xTimerCreate( "AutoReload LED", BLUE_LED_RELOAD_TIMER_PERIOD,
                               pdTRUE, 0, prvTimerCallback );
 
+
+    // xWatchdogReloadTimer
+    // Watchdog timer update(): Create the auto-reload, storing the handle to the created timer in xWatchdogReloadTimer.
+    xWatchdogReloadTimer = xTimerCreate( "AutoReload Watchdog", WATCHDOG_RELOAD_TIMER_PERIOD,
+                              pdTRUE, 0, prvTimerCallback );
+
     // Check FreeRTOS software timers were created.
-    if( ( xOneShotTimer != NULL ) && (xBlueLedReloadTimer != NULL)) {
+//    if( ( xOneShotTimer != NULL ) && (xBlueLedReloadTimer != NULL) ) {
+    if( ( xOneShotTimer != NULL ) && (xBlueLedReloadTimer != NULL) && (xWatchdogReloadTimer != NULL)) {
       // create FreeRTOS tasks
       xTaskCreate(vTaskBlinkDefault, "Blink Task", 128, NULL, 1, NULL);         // Pico defualt LED
 	    
@@ -523,17 +562,20 @@ int main() {
       );
         
       // Start the timers, using a block time of 0 (no block time).  The
-	  // scheduler has not been started yet so any block time specified here
-	  // would be ignored anyway.
+      // scheduler has not been started yet so any block time specified here
+      // would be ignored anyway.
       xTimer1Started = xTimerStart( xOneShotTimer, 0 );
-	  xTimerBlueLedStarted = xTimerStart( xBlueLedReloadTimer, 0 );
+      xTimerBlueLedStarted = xTimerStart( xBlueLedReloadTimer, 0 );
+      // Watchdog
+      xTimerWatchdogStarted = xTimerStart( xWatchdogReloadTimer, 0 );
 
       // The implementation of xTimerStart() uses the timer command queue, and
       // xTimerStart() will fail if the timer command queue gets full.  The timer
       // service task does not get created until the scheduler is started, so all
       // commands sent to the command queue will stay in the queue until after
       // the scheduler has been started.  Check calls to xTimerStart() passed.
-      if( ( xTimer1Started == pdPASS ) && (xTimerBlueLedStarted == pdPASS)) {
+//      if( ( xTimer1Started == pdPASS ) && (xTimerBlueLedStarted == pdPASS) ) {
+      if( ( xTimer1Started == pdPASS ) && (xTimerBlueLedStarted == pdPASS) && (xTimerWatchdogStarted == pdPASS)) {
         vTaskStartScheduler();   // Start the scheduler
       }
     }
@@ -737,6 +779,7 @@ void vTaskBlinkDefault() {
 // Timers:
 // 1) Blue blinking LED (auto-reload)
 // 2) one-shot for testing  (one-shot)
+// 3) Watchdog timer update() to clear watchdog timer
 static void prvTimerCallback( TimerHandle_t xTimer ) {
     // The handle of the one-shot timer was stored in xOneShotTimer when the
     // timer was created.  Compare the handle passed into this function with
@@ -748,6 +791,20 @@ static void prvTimerCallback( TimerHandle_t xTimer ) {
     if( xTimer == xOneShotTimer ) {
       // do something here
       uart_puts(UART_ID, "One-shot timer callback executing\n\r");
+    }
+    // *****************************
+    // xTimer for Watchdog timer update()
+    else if( xTimer == xWatchdogReloadTimer ) {
+      // Clear the watchdog timer
+      watchdog_update();
+#ifdef UART_LOG
+      uart_puts(UART_ID, "Watchdog timer callback executing ");
+      static char num_str[5];
+      sprintf(num_str, "%d", callbck_cnt) ;   // convert to string
+      uart_puts(UART_ID, num_str);
+      uart_puts(UART_ID, "\r\n");
+      callbck_cnt++;
+#endif
     }
     // *****************************
     // xTimer for blue blinking LED timer
