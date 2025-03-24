@@ -154,13 +154,18 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 // Generic Definitions
 // ***************************
 // Period with which we'll enter the BTstack timer callback
-#define HEARTBEAT_PERIOD_MS 250
+//#define HEARTBEAT_PERIOD_MS 250
 
 // Pre-processor Directives Section
 // FreeRTOS: The periods assigned to one-shot and auto-reload timers
 #define mainONE_SHOT_TIMER_PERIOD       ( pdMS_TO_TICKS( 3333UL ) )
-#define BLUE_LED_RELOAD_TIMER_PERIOD  ( pdMS_TO_TICKS( 250UL ) )
+#define BLUE_LED_RELOAD_TIMER_PERIOD    ( pdMS_TO_TICKS( 250UL ) )
 #define TaskDEFLTLED_DLY   250
+
+// Watchdog timer reset
+// Watchdog timeout duration in milliseconds (must be long enough for other tasks to execute)
+#define WATCHDOG_TIMEOUT_MS           ( pdMS_TO_TICKS( 250UL ) )  // 250 mSec timeout
+#define WATCHDOG_RELOAD_TIMER_PERIOD  ( pdMS_TO_TICKS( 100UL ) )  // 100 mSec timer update()
 
 #define ADC_CHANNEL_TEMPSENSOR 4
 #define FREERTOS_ENABLED true   // enable to use FreeRTOS delay function
