@@ -133,7 +133,7 @@
 // Oct 26, 2024
 // Moved some source files to src/rpp_bot subdirectory
 // Oct 27, 2024
-// Moved vBLEinput_HandlerTask() to main.c and added get_xBLEinput_HandlerTask() function.
+// Moved vBTstack_HandlerTask() to main.c and added get_xBTstack_HandlerTask() function.
 // Major Version Release V1.0 GitHub.com/digitekxplorer
 // Jan 5, 2025
 // RP2350- E9 correction: use pull-up because of error in RP2350; see pico_init.c
@@ -183,12 +183,27 @@
 // Mar 12, 2025
 // Working on BLE functions. Modified server_gattfile.gatt, service_implementation.h
 // Mar 16, 2025
-// Updated vBLEinput_HandlerTask(). 3 options: command, message, Led control
+// Updated vBTstack_HandlerTask(). 3 options: command, message, Led control
 // Mar 17, 2025
 // Updated service_implementation.h per suggestions from Google Gemini to define 
 // string buffers and buffer sizes. Limit buffer copy to max buffer sizes.
 // Mar 24, 2025
 // Added Watchdog reset; timer task in FreeRTOS; define timeout in defs.h
+// April 9, 2025
+// After extensive testing trying to fix compatibility issue between FreeRTOS
+// and BTstack, reverted back to code from March 24, 2025
+// April 12, 2025
+// Moved all BTstack setup and functions to vBTstack_HandlerTask() and removed
+// bleServerTask(). Also removed bstack_run_loop_execute() call becuase the
+// RP2350's PIO handles Transport Layer functions to move data between the CYW43439
+// and the RP2350. No BTstack run loop is needed for the RP2350.
+// April 15, 2025
+// Change task name from vBLEinput_HandlerTask() to vBTstack_HandlerTask(). Added
+// 3D time matrix to record FreeRTOS task times.
+// April 16, 2025
+// Added task timer to BTstack FreeRTOS task.  Found UART debug message in 'FWD' 
+// command that was causing huge delays (in cmd_monitor.c). Remove UART debug message.
+// Fixed Left turn issue in motor.c.
 
 
 /*
@@ -277,8 +292,8 @@ static TimerHandle_t xBlueLedReloadTimer;     // LED
 static TimerHandle_t xWatchdogReloadTimer;    // watchdog
 
 // Function Prototypes for FreeRTOS Tasks and Callbacks
-// User input using BLE either commands or text messages; Handler Task
-void vBLEinput_HandlerTask( void * pvParameters );
+// User input using BLE either commands or text messages; BTstack Handler Task
+void vBTstack_HandlerTask( void * pvParameters );
 // The blinking LED function; Pico default LED
 static void vTaskBlinkDefault(); 
 // RX UART Deferred Task
@@ -302,13 +317,13 @@ static void vPshbttnInterruptHandler();
 static TaskHandle_t xUartRXHandlerTask = NULL;
 static TaskHandle_t xPioRXHandlerTask = NULL;
 static TaskHandle_t xPshbttnHandlerTask = NULL;
-static TaskHandle_t xBLEinput_HandlerTask = NULL;   // used in service_implementation.h
+static TaskHandle_t xBTstack_HandlerTask = NULL;   // used in service_implementation.h
 
 
 
 // GATT Server task
 // Link between FreeRTOS and BTstack
-static void bleServerTask(void *pv);
+//static void btstackServerTask(void *pv);
 
 // *****
 // BLE
@@ -357,6 +372,17 @@ const char temp_message[] = "Temperature deg F = ";    // text for temperature
 
 int callbck_cnt = 0;
 
+// Get the time since boot in microseconds using the Pico SDK function
+uint64_t time_us = 0;
+uint64_t diff_us = 0;
+static char us_str[20];
+
+// --- Matrix Declaration ---
+#define ROWS 2
+#define COLS 5
+#define TIM  8
+// Declare a 2x5 matrix of int64_t (64-bit unsigned integer)
+uint64_t time_matx[TIM][ROWS][COLS];
 
 // *****************************************************************
 // *****************************************************************
@@ -404,6 +430,28 @@ int main() {
         uart_puts(UART_ID, "BLE init failed.");
         return -1;
     }
+
+    // Get the time since boot in microseconds using the Pico SDK function
+//    time_us = time_us_64();
+    for (int rr; rr<=4; rr++){
+      time_matx[rr][0][0] = time_us_64();
+      uart_puts(UART_ID, "Time since boot in uSec = ");
+//    sprintf(us_str, "%d", time_us) ;      // convert to a string 
+      sprintf(us_str, "%d", time_matx[rr][0][0]) ;      // convert to a string 
+      uart_puts(UART_ID, us_str);
+      uart_puts(UART_ID, "\r\n");
+
+      time_matx[rr][0][1] = time_us_64();
+      sprintf(us_str, "%d", time_matx[rr][0][1]) ;      // convert to a string 
+      uart_puts(UART_ID, us_str);
+      uart_puts(UART_ID, "\r\n");
+      uart_puts(UART_ID, "Difference in uSec = ");
+      diff_us = time_matx[rr][0][1] - time_matx[rr][0][0];
+      sprintf(us_str, "%d", diff_us) ;      // convert to a string 
+      uart_puts(UART_ID, us_str);
+      uart_puts(UART_ID, "\r\n");
+    }
+
 
     // Clear TB6612FNG motor driver AIN1&2 and BIN1&2 to have motors start in off state
     motors_off();
@@ -549,17 +597,26 @@ int main() {
       // Bluetooth Low Energy (BLE)
       //
       // BLE Characteristics tasks
-      xTaskCreate( vBLEinput_HandlerTask, "BLE Input Handler", 1000, NULL, 3, &xBLEinput_HandlerTask );
+      xTaskCreate( 
+          vBTstack_HandlerTask,      // pointer to the task
+          "BLE Input Handler",       // task name for kernel awareness debugging
+          1000,                      // task stack size   
+          NULL,                      // optional task startup argument
+          3,                         // initial priority
+          &xBTstack_HandlerTask      // optional task handle to create
+      );
 
-      // Task to define BLE and to execute the BTstack run_loop()
+      // BTstack Task used to initialize BLE functions and register callbacks
+/*
       xTaskCreate(
-        bleServerTask,            // pointer to the task
-        "BLEserver",              // task name for kernel awareness debugging
+        btstackServerTask,        // pointer to the task
+        "BTserver",               // task name for kernel awareness debugging
         1200/sizeof(StackType_t), // task stack size
         (void*)NULL,              // optional task startup argument
         tskIDLE_PRIORITY+2,       // initial priority
         (TaskHandle_t*)NULL       // optional task handle to create
       );
+*/
         
       // Start the timers, using a block time of 0 (no block time).  The
       // scheduler has not been started yet so any block time specified here
@@ -633,8 +690,50 @@ void app_set(void) {                   // initialize command array
 // and if it is true we have a command that will be decoded and executed.  
 // If it is a text message then it will be displayed on the SSD1306 and nothing has to be done. 
 // The blecmdtxt_ptr->is_cltCmd flag is update in service_implementation.h
-void vBLEinput_HandlerTask( void * pvParameters ) {
+void vBTstack_HandlerTask( void * pvParameters ) {
     static uint32_t  valid_command;             // valid command indicator
+    uint64_t btstack_duration_time = 0;
+    static char btstack_duration_str[20];
+    uint32_t btstack_tsk_cnt = 0;
+
+    // *******************************
+    // BTstack setup and registeration
+//    btstack_run_loop_init(btstack_run_loop_freertos_get_instance());
+
+    btstack_memory_init();
+ 
+    l2cap_init(); // Set up L2CAP and register L2CAP with HCI layer
+    sm_init(); // setup security manager
+
+#ifdef UART_LOG        
+    dbg_print('T');   // debug point
+#endif  
+  
+    // Initialize ATT server, no general read/write callbacks
+    // because we'll set one up for each service
+    att_server_init(profile_data, NULL, NULL);   
+
+    // Instantiate our custom service handler
+    custom_service_server_init();   // moved buffer definitions to severice_implementation.h
+
+    // inform about BTstack state
+    hci_event_callback_registration.callback = &packet_handler; // setup callback for events
+    hci_add_event_handler(&hci_event_callback_registration); // register callback handler
+
+    // register for ATT event
+    att_server_register_packet_handler(packet_handler); // register packet handler
+
+    hci_power_control(HCI_POWER_ON); // turn BLE on
+    // *******************************
+  
+    // The RP2350's PIO handles BTstack's Transport Layer therefore the RP2350 doesn't need
+    // a separate FreeRTOS Task to handle data transfers between the RP2350 and the CYW43439.
+    // I think that is why the Pico W doesn't need to use a btstack_run_loop_execute() call.
+    // The data transfers are done automatically by the PIO.  The RP2350 just has to read the 
+    // PIO's Fifo when data from the CYW43439 is ready or write data to the Fifo when sending
+    // data to the CYW43439...and then transmitting to the Anroid Phone via BLE protocol.
+    // btstack_run_loop_execute();    -> not needed for RP2350 because of PIO
+
     // Implement this task within an infinite loop.
     for( ; ; ) {       
         // Wait to receive a notification sent directly to this task from custom_service_write_callback()
@@ -643,6 +742,8 @@ void vBLEinput_HandlerTask( void * pvParameters ) {
         // a notification.
         if( ulTaskNotifyTake( pdFALSE, portMAX_DELAY ) != 0 ) {
           // To get here the event must have occurred.
+
+          time_matx[btstack_tsk_cnt][2][0] = time_us_64();        // save task start time
 
 #ifdef UART_LOG
           uart_puts(UART_ID, "Task_Handler: command or message from client\n\r");
@@ -730,23 +831,44 @@ void vBLEinput_HandlerTask( void * pvParameters ) {
 #endif
           }
 
-        }  // end of notification loop         
-    }  // end of for loop 
+        time_matx[btstack_tsk_cnt][2][1] = time_us_64();        // save task end time
+#ifdef UART_LOG
+        btstack_duration_time = time_matx[btstack_tsk_cnt][2][1] - time_matx[btstack_tsk_cnt][2][0];
+        uart_puts(UART_ID, "BTstack duration in uSec = ");
+        sprintf(btstack_duration_str, "%d", btstack_duration_time) ;      // convert to a string 
+        uart_puts(UART_ID, btstack_duration_str);
+        uart_puts(UART_ID, "\r\n");
+        // verify index is working correctly
+        uart_puts(UART_ID, "Index = ");
+        sprintf(btstack_duration_str, "%d", btstack_tsk_cnt) ;      // convert to a string
+        uart_puts(UART_ID, btstack_duration_str);
+        uart_puts(UART_ID, "\r\n");
+#endif
+        btstack_tsk_cnt = (btstack_tsk_cnt + 1) % 8;              // circular buffer index
+
+        }  // end of notification loop
+    }  // end of infinite for loop 
 }  // end handler task
 
 
 
-// Get xBLEinput_HandlerTask from main.c and send to service_implementation.h.
-// xBLEinput_HandlerTask used to communicate between:
-// ulTaskNotifyTake() in vBLEinput_HandlerTask() in main.c
+// Get xBTstack_HandlerTask from main.c and send to service_implementation.h.
+// xBTstack_HandlerTask used to communicate between:
+// ulTaskNotifyTake() in vBTstack_HandlerTask() in main.c
 // and xTaskNotifyGive() in custom_service_write_callback() in service_implementation.h
-TaskHandle_t get_xBLEinput_HandlerTask(void) {
-    return xBLEinput_HandlerTask;
+//TaskHandle_t get_xBLEinput_HandlerTask(void) {
+TaskHandle_t get_xBTstack_HandlerTask(void) {
+    return xBTstack_HandlerTask;
 }
 
 // The blinking LED function; Pico default LED
 void vTaskBlinkDefault() {
+   uint64_t blink_duration_time = 0;
+   static char blink_duration_str[20];
+   uint32_t blink_tsk_cnt = 0;
    for (;;) {
+      time_matx[blink_tsk_cnt][1][0] = time_us_64();        // save task start time
+
       // Turn on Pico or Pico W LED
 #if defined(PICO_DEFAULT_LED_PIN)
       gpio_put(PICO_DEFAULT_LED_PIN, 1);
@@ -766,6 +888,21 @@ void vTaskBlinkDefault() {
 //    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, !cyw43_arch_gpio_get(CYW43_WL_GPIO_LED_PIN));
 #endif
       vTaskDelay(TaskDEFLTLED_DLY);        // FreeRTOS delay
+
+      time_matx[blink_tsk_cnt][1][1] = time_us_64();        // save task end time
+#ifdef UART_LOG
+      blink_duration_time = time_matx[blink_tsk_cnt][1][1] - time_matx[blink_tsk_cnt][1][0];
+      uart_puts(UART_ID, "Blink duration in uSec = ");
+      sprintf(blink_duration_str, "%d", blink_duration_time) ;      // convert to a string 
+      uart_puts(UART_ID, blink_duration_str);
+      uart_puts(UART_ID, "\r\n");
+      // verify index is working correctly
+      uart_puts(UART_ID, "Index = ");
+      sprintf(blink_duration_str, "%d", blink_tsk_cnt) ;      // convert to a string
+      uart_puts(UART_ID, blink_duration_str);
+      uart_puts(UART_ID, "\r\n");
+#endif
+      blink_tsk_cnt = (blink_tsk_cnt + 1) % 8;              // circular buffer index
    }
 }
 
@@ -1267,11 +1404,12 @@ static void pio_irq_setup(void) {
 }
 
 // *********************************************************
-// BLE
+// BLE: BTstack
 // *********************************************************
-// Main BTstack function used to execute the BTstack loop.
+// Main BTstack function used to initialize BLE functions and register callbacks
 // BLE GATT Server task
-static void bleServerTask(void *pv) {
+/*
+static void btstackServerTask(void *pv) {
   l2cap_init(); // Set up L2CAP and register L2CAP with HCI layer
   sm_init(); // setup security manager
 
@@ -1295,10 +1433,24 @@ static void bleServerTask(void *pv) {
 
   hci_power_control(HCI_POWER_ON); // turn BLE on
   
+  // The RP2350's PIO handles BTstack's Transport Layer therefore the RP2350 doesn't need
+  // a separate FreeRTOS Task to handle data transfers between the RP2350 and the CYW43439.
+  // I think that is why the Pico W doesn't need to use a btstack_run_loop_execute() call.
+  // The data transfers are done automatically by the PIO.  The RP2350 just has to read the 
+  // PIO's Fifo when data from the CYW43439 is ready or write data to the Fifo when sending
+  // data to the CYW43439...and then transmitting to the Anroid Phone via BLE protocol.
   for(;;) {
-    btstack_run_loop_execute(); // does not return
+//    btstack_run_loop_execute(); // does not return
+
+//#ifdef UART_LOG        
+    dbg_print('X');   // debug point
+//#endif  
+    vTaskDelay(TaskDEFLTLED_DLY);        // FreeRTOS delay
+//    vTaskDelay(10);        // FreeRTOS delay; 10 mSec
+
   }
 }
+*/
 
 // *****************
 // Pico ADC poll for temperature and battery voltage
