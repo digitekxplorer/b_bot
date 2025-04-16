@@ -315,6 +315,7 @@ int veh_fwd_cmd(char *cp_input) {
    unsigned char dutyCycle_char = '0';
    
          // debug
+/*
          uart_puts(UART_ID, "Inside veh_fwd_cmd().\r\n");
          uart_puts(UART_ID, "Turn delay = ");
          
@@ -324,6 +325,7 @@ int veh_fwd_cmd(char *cp_input) {
          uart_puts(UART_ID, "\r\n");  
          print_int(veh_ptr->veh_turn_dly);
          uart_puts(UART_ID, "\r\n"); 
+*/
          // end debug
 
 
@@ -460,6 +462,7 @@ int veh_turn_dly_cmd(char *cp) {   // multiplier adjustment
          veh_ptr->veh_turn_dly = (int)ang_dly; // used in veh_movmnt_fsm.c
 
          // debug
+/*
          uart_puts(UART_ID, "Inside veh_turn_dly_cmd().\r\n");
          uart_puts(UART_ID, "Turn delay = ");
          
@@ -469,6 +472,7 @@ int veh_turn_dly_cmd(char *cp) {   // multiplier adjustment
          uart_puts(UART_ID, "\r\n");  
          print_int(veh_ptr->veh_turn_dly);
          uart_puts(UART_ID, "\r\n"); 
+*/
          // end debug
          
          return (1);
