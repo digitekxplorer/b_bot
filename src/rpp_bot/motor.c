@@ -154,7 +154,7 @@ void motor_turnLeft(void) {
 	   gpio_put(MTR1_AIN2, 0);
 	   // Motor#2 CCW
 	   gpio_put(MTR2_BIN1, 0);
-	   gpio_put(MTR2_BIN2, 0);
+	   gpio_put(MTR2_BIN2, 1);
 }
 
 
