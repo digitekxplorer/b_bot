@@ -290,7 +290,7 @@ static int custom_service_write_callback(hci_con_handle_t con_handle, uint16_t a
         // **************
         // Send a notification to the handler task vBLEinput_HandlerTask() in main.c
         // Get xBLEinput_HandlerTask from main.c
-        xTaskNotifyGive( get_xBLEinput_HandlerTask());      // Call to FreeRTOS task!!!!
+        xTaskNotifyGive( get_xBTstack_HandlerTask());      // Call to FreeRTOS task!!!!
 
 	    // If client has enabled notifications, register a callback
 	    if (instance->characteristic_b_client_configuration) {
@@ -312,13 +312,13 @@ static int custom_service_write_callback(hci_con_handle_t con_handle, uint16_t a
             veh_ptr->led_pcb_on = true;  // PCB LED ON
         } else {
             // Handle unexpected input (optional, but good practice)
-            #ifdef UART_LOG
+#ifdef UART_LOG
             uart_puts(UART_ID, "Inside service_impl, Unexpected LED Control Command from client:\n\r");
-            #endif
+#endif
         }
 
         blecmdtxt_ptr->is_pcbLed = true;    // did client press LED on or off
-        xTaskNotifyGive(get_xBLEinput_HandlerTask());      // Call to FreeRTOS task
+        xTaskNotifyGive(get_xBTstack_HandlerTask());      // Call to FreeRTOS task
 
         // If client has enabled notifications, send them NOW.  This is important!
         if (service_object.characteristic_c_client_configuration) {
@@ -373,7 +373,7 @@ static int custom_service_write_callback(hci_con_handle_t con_handle, uint16_t a
         // **************
         // Send a notification to the handler task vBLEinput_HandlerTask() in main.c
         // Get xBLEinput_HandlerTask from main.c
-        xTaskNotifyGive( get_xBLEinput_HandlerTask());      // Call to FreeRTOS task!!!!
+        xTaskNotifyGive( get_xBTstack_HandlerTask());      // Call to FreeRTOS task!!!!
 
 		// If client has enabled notifications, register a callback
 		if (instance->characteristic_e_client_configuration) {
