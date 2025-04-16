@@ -14,7 +14,8 @@
 #define FTOSTASK_H
 
 // Get xBLEinput_HandlerTask from main.c and send to service_implementation.h
-TaskHandle_t get_xBLEinput_HandlerTask(void);
+//TaskHandle_t get_xBLEinput_HandlerTask(void);
+TaskHandle_t get_xBTstack_HandlerTask(void);
 
 
 #endif   // FTOSTASKS_H
