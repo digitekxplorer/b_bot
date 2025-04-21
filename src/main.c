@@ -204,6 +204,8 @@
 // Added task timer to BTstack FreeRTOS task.  Found UART debug message in 'FWD' 
 // command that was causing huge delays (in cmd_monitor.c). Remove UART debug message.
 // Fixed Left turn issue in motor.c.
+// April 21, 2025
+// Code cleanup
 
 
 /*
@@ -284,6 +286,18 @@ Ble_cmd_text_t blecmdtxt;   // global variable 'blecmdtxt'
 // *************
 // FreeRTOS 
 // *************
+// There are six FreeRTOS tasks where one is a timer task.  The timer task has
+// three timers that will trigger the FreeRTOS timer task.
+// The FreeRTOS tasks are:
+// 1) vBTstack_HandlerTask             - Bluetooth
+// 2) vTaskBlinkDefault                - Default blinking LED (Pico on-board LED)
+// 3) vUartRxDeferredIntrHandlerTask   - UART used for logging during debug
+// 4) vPioRxDeferredIntrHandlerTask    - PIO used for HC-SR04 ultrasonic ranging
+// 5) vPshbttnDeferredIntrHandlerTask  - pushbutton interrupt
+// 6) prvTimerCallback                 - FreeRTOS timers
+//    a) xTimer1Started                - one-shot timer for testing
+//    b) xTimerBlueLedStarted          - second blinking LED
+//    c) xTimerWatchdogStarted         - Watchdog timer
 //
 // The timer handles are used inside the callback function so 
 // these timers are given file scope.
@@ -319,11 +333,6 @@ static TaskHandle_t xPioRXHandlerTask = NULL;
 static TaskHandle_t xPshbttnHandlerTask = NULL;
 static TaskHandle_t xBTstack_HandlerTask = NULL;   // used in service_implementation.h
 
-
-
-// GATT Server task
-// Link between FreeRTOS and BTstack
-//static void btstackServerTask(void *pv);
 
 // *****
 // BLE
@@ -377,11 +386,13 @@ uint64_t time_us = 0;
 uint64_t diff_us = 0;
 static char us_str[20];
 
-// --- Matrix Declaration ---
-#define ROWS 2
-#define COLS 5
-#define TIM  8
-// Declare a 2x5 matrix of int64_t (64-bit unsigned integer)
+// --- Time Matrix Declaration ---
+// timers to calculate time duration for FreeRTOS tasks or interrupts.
+// Time duration example: diff_us = time_matx[rr][0][1] - time_matx[rr][0][0] for first timer
+#define ROWS 2    // start time [0] and end time [1]; subtract start time from end time
+#define COLS 5    // number of timer durations for different tasks
+#define TIM  8    // how many times to sample time to get an average if needed
+// Declare a 8x2x5 time matrix of int64_t to calculate time delays(64-bit unsigned integer)
 uint64_t time_matx[TIM][ROWS][COLS];
 
 // *****************************************************************
@@ -405,16 +416,6 @@ int main() {
     pico_io();          // setup Pico external LEDs, mtr IO, ...
     pico_uart_init();   // setup UART
     print_welcome(1);   // send welcome message to UART; number of seconds to delay
-
-/*
-    // Watchdog reset
-    if (watchdog_enable_caused_reboot()) {
-        printf("Rebooted by Watchdog!\n");
-//        return 0;
-    } else {
-        printf("Clean boot\n");
-    }
-*/
     
 #if !defined(i2c_default) || !defined(PICO_DEFAULT_I2C_SDA_PIN) || !defined(PICO_DEFAULT_I2C_SCL_PIN)
 #warning i2c/mpu6050_i2c example requires a board with I2C pins
@@ -432,11 +433,11 @@ int main() {
     }
 
     // Get the time since boot in microseconds using the Pico SDK function
-//    time_us = time_us_64();
+    // Subtract start time from end time to get a duration and use the loop
+    // to calculate an average.
     for (int rr; rr<=4; rr++){
       time_matx[rr][0][0] = time_us_64();
       uart_puts(UART_ID, "Time since boot in uSec = ");
-//    sprintf(us_str, "%d", time_us) ;      // convert to a string 
       sprintf(us_str, "%d", time_matx[rr][0][0]) ;      // convert to a string 
       uart_puts(UART_ID, us_str);
       uart_puts(UART_ID, "\r\n");
@@ -505,7 +506,6 @@ int main() {
     sleep_ms(500);                // short delay
     ssd1306_drawborder();
     WriteString(13,8,"HELLO B_Bot"); 
-//    WriteString(13,8,"HELLO B_Bot");   // problem with underscore
     UpdateDisplay();
     
     // ****************
@@ -573,7 +573,6 @@ int main() {
                               pdTRUE, 0, prvTimerCallback );
 
     // Check FreeRTOS software timers were created.
-//    if( ( xOneShotTimer != NULL ) && (xBlueLedReloadTimer != NULL) ) {
     if( ( xOneShotTimer != NULL ) && (xBlueLedReloadTimer != NULL) && (xWatchdogReloadTimer != NULL)) {
       // create FreeRTOS tasks
       xTaskCreate(vTaskBlinkDefault, "Blink Task", 128, NULL, 1, NULL);         // Pico defualt LED
@@ -596,7 +595,7 @@ int main() {
       // ****************
       // Bluetooth Low Energy (BLE)
       //
-      // BLE Characteristics tasks
+      //  BTstack Task used to initialize BLE functions and register callbacks
       xTaskCreate( 
           vBTstack_HandlerTask,      // pointer to the task
           "BLE Input Handler",       // task name for kernel awareness debugging
@@ -631,7 +630,6 @@ int main() {
       // service task does not get created until the scheduler is started, so all
       // commands sent to the command queue will stay in the queue until after
       // the scheduler has been started.  Check calls to xTimerStart() passed.
-//      if( ( xTimer1Started == pdPASS ) && (xTimerBlueLedStarted == pdPASS) ) {
       if( ( xTimer1Started == pdPASS ) && (xTimerBlueLedStarted == pdPASS) && (xTimerWatchdogStarted == pdPASS)) {
         vTaskStartScheduler();   // Start the scheduler
       }
@@ -817,11 +815,9 @@ void vBTstack_HandlerTask( void * pvParameters ) {
             if ( veh_ptr->led_pcb_on == true ) {
               gpio_put(LED_EX1, 1);
               set_characteristic_c_value( "on" );    // update in service_implementation.h
-//              set_characteristic_c_value( 1 );    // update in service_implementation.h
             } else {
               gpio_put(LED_EX1, 0);
               set_characteristic_c_value( "off" );   // update in service_implementation.h
-//              set_characteristic_c_value( 0 );   // update in service_implementation.h
             }
             
             blecmdtxt_ptr->is_pcbLed = false;    // get ready for next BLE client event
@@ -847,8 +843,8 @@ void vBTstack_HandlerTask( void * pvParameters ) {
         btstack_tsk_cnt = (btstack_tsk_cnt + 1) % 8;              // circular buffer index
 
         }  // end of notification loop
-    }  // end of infinite for loop 
-}  // end handler task
+    }      // end of infinite for loop 
+}          // end handler task
 
 
 
@@ -979,9 +975,7 @@ static void prvTimerCallback( TimerHandle_t xTimer ) {
          adc_poll();
          // Update Pico Temperature characteristic (sends to client if notifications enabled)
          set_characteristic_d_value(deg_f) ;
-		
 	     // Display temperature and client message on SSD1306
-//	     ssd1306_dsply(FREERTOS_ENABLED, deg_f, blecmdtxt_ptr->client_message);   // use FreeRTOS delay function
 	     ssd1306_dsply(FREERTOS_ENABLED, deg_f, blecmdtxt_ptr->client_message, batt_volt_flt);   // use FreeRTOS delay function
       }    
     }  // end of blinking LED else
@@ -1042,10 +1036,9 @@ static void vUartRxDeferredIntrHandlerTask( void * pvParameters ) {
         // returns having received a notification.
 //        if( ulTaskNotifyTake( pdFALSE, xMaxExpectedBlockTime ) != 0 ) {
         if( ulTaskNotifyTake( pdFALSE, portMAX_DELAY ) != 0 ) {
-          uint32_t ii = 0;
-
           // To get here the event must have occurred.  Process the event (in this
           // case just print out a message).
+          uint32_t ii = 0;
 #ifdef UART_LOG        
           dbg_print('D');   // debug point
 #endif
@@ -1084,8 +1077,8 @@ static void vUartRxDeferredIntrHandlerTask( void * pvParameters ) {
           // Enable UART RX interrupt to wait for next user command
           uart_set_irq_en_wo_timout(UART_ID, true);      // enable only uart rx interrupt
         }  // end of notification loop   
-      }  // task infinite loop
-  }  // end handler task
+      }    // task infinite loop
+  }        // end handler task
 
 
 
@@ -1261,8 +1254,8 @@ static void vPioRxDeferredIntrHandlerTask( void * pvParameters ) {
           hw_set_bits(&pio0_hw->inte0, 1u << 0);    // enable irq at PIO,SM0_RXNEMPTY
            irq_set_enabled(PIO0_IRQ_0, true);                 // enable irq at NVIC
         }  // end of notification loop   
-      }  // task infinite loop
-}   // end handler task
+      }    // task infinite loop
+}          // end handler task
 
 
 // *********************************
@@ -1311,10 +1304,8 @@ static void vPshbttnDeferredIntrHandlerTask( void * pvParameters ) {
 #endif
 
           vTaskDelay(5);        // FreeRTOS delay; debounce for 5 mSec
-//          if (gpio_get(BUTTON_GPIO)) {  // read pushbutton status after debounce delay
           if (!gpio_get(BUTTON_GPIO)) {  // read pushbutton status after debounce delay
 #ifdef UART_LOG
-//             uart_puts(UART_ID, "Pushbutton still HIGH after debounce delay.\r\n");
              uart_puts(UART_ID, "Pushbutton still LOW after debounce delay.\r\n");
 #endif  
           
@@ -1326,8 +1317,6 @@ static void vPshbttnDeferredIntrHandlerTask( void * pvParameters ) {
 #endif          
                 // when pushbutton is pressed and already active, send 'stop' command
                 veh_halt_cmd();
-//                pshbtn_command = cmd_deco ("hlt", TRUE);   //  force 'halt' command; halt motors and HC-SR04
-//                check_ctrl_stack();                              // remove command if tasks are done
                 pshbttn_fwd = false;  
                  
              }
@@ -1340,8 +1329,6 @@ static void vPshbttnDeferredIntrHandlerTask( void * pvParameters ) {
                 // when pushbutton is pressed move vehicle forward
                 char blank = ' ';
                 veh_fwd_cmd(&blank);  // this will set default motor speed because a comma is not in command
-//                pshbtn_command = cmd_deco ("fwd", TRUE);   //  force forward command
-//                check_ctrl_stack();                            // remove command if tasks are done
                 pshbttn_fwd = true;
              }     
           }         // end of pushbutton high 
@@ -1353,11 +1340,10 @@ static void vPshbttnDeferredIntrHandlerTask( void * pvParameters ) {
           }
 
           // Enable puahbotton interrupt.
-//          gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_RISE, true, &vPshbttnInterruptHandler);
           gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_FALL, true, &vPshbttnInterruptHandler);
         }  // end of notification loop         
-    }  // end of for loop 
-}  // end handler task
+    }      // end of for loop 
+}          // end handler task
 
 // *****************
 // Interrput setups
@@ -1367,10 +1353,8 @@ static void vPshbttnDeferredIntrHandlerTask( void * pvParameters ) {
 static void uart_irq_setup(int UART_IRQ) {
     irq_set_exclusive_handler(UART_IRQ, vUartRxInterruptHandler);
     irq_set_enabled(UART_IRQ, true);  // Note: Timer#3 interrupt is enabled??
-//    printf("ISER Interrupt Set-Enable Register after: 0x%08x\n", *nvic_int_en_ptr);
 
     // Now enable the UART to send interrupts - RX only
-//    uart_set_irq_enables(UART_ID, true, false);  // rx fifo has data; tx fifo is empty
     uart_set_irq_enables(UART_ID, false, false);
     uart_set_irq_en_wo_timout(UART_ID, true);  // rx fifo interrput
 
@@ -1379,7 +1363,6 @@ static void uart_irq_setup(int UART_IRQ) {
         uint8_t ch = uart_getc(UART_ID);    // read from UART0 data register
         uart_putc(UART_ID, ch);
     }
-//    uart_puts(UART_ID, "\r\n");   // debug
 
 }
 
@@ -1402,55 +1385,6 @@ static void pio_irq_setup(void) {
     irq_set_enabled(PIO0_IRQ_0, true);                 // enable irq at NVIC
     // Enable interrupt in timer peripheral and NVIC connected to ARM Cortex-M0+processor
 }
-
-// *********************************************************
-// BLE: BTstack
-// *********************************************************
-// Main BTstack function used to initialize BLE functions and register callbacks
-// BLE GATT Server task
-/*
-static void btstackServerTask(void *pv) {
-  l2cap_init(); // Set up L2CAP and register L2CAP with HCI layer
-  sm_init(); // setup security manager
-
-#ifdef UART_LOG        
-  dbg_print('T');   // debug point
-#endif  
-  
-  // Initialize ATT server, no general read/write callbacks
-  // because we'll set one up for each service
-  att_server_init(profile_data, NULL, NULL);   
-
-  // Instantiate our custom service handler
-  custom_service_server_init();   // moved buffer definitions to severice_implementation.h
-
-  // inform about BTstack state
-  hci_event_callback_registration.callback = &packet_handler; // setup callback for events
-  hci_add_event_handler(&hci_event_callback_registration); // register callback handler
-
-  // register for ATT event
-  att_server_register_packet_handler(packet_handler); // register packet handler
-
-  hci_power_control(HCI_POWER_ON); // turn BLE on
-  
-  // The RP2350's PIO handles BTstack's Transport Layer therefore the RP2350 doesn't need
-  // a separate FreeRTOS Task to handle data transfers between the RP2350 and the CYW43439.
-  // I think that is why the Pico W doesn't need to use a btstack_run_loop_execute() call.
-  // The data transfers are done automatically by the PIO.  The RP2350 just has to read the 
-  // PIO's Fifo when data from the CYW43439 is ready or write data to the Fifo when sending
-  // data to the CYW43439...and then transmitting to the Anroid Phone via BLE protocol.
-  for(;;) {
-//    btstack_run_loop_execute(); // does not return
-
-//#ifdef UART_LOG        
-    dbg_print('X');   // debug point
-//#endif  
-    vTaskDelay(TaskDEFLTLED_DLY);        // FreeRTOS delay
-//    vTaskDelay(10);        // FreeRTOS delay; 10 mSec
-
-  }
-}
-*/
 
 // *****************
 // Pico ADC poll for temperature and battery voltage
@@ -1476,7 +1410,6 @@ void adc_poll(void) {
 
 // Get ADC measurement for selected channel
 float get_adc_reading(uint32_t chan) {
-//    float reading;
     adc_select_input(chan);
     uint32_t raw32 = adc_read();
     // Scale raw reading to 16 bit value using a Taylor expansion (for 8 <= bits <= 16)
@@ -1486,8 +1419,6 @@ float get_adc_reading(uint32_t chan) {
 //    const float adc_conversion_factor = 3.3 / (65535);
 //    reading = raw16 * ADC_CONV_FACTOR;   // ADC_CONV_FACTOR defined in defs.h
     return(raw16 * ADC_CONV_FACTOR);   // ADC_CONV_FACTOR defined in defs.h
-    
-//    return(reading);
 }
 
 
