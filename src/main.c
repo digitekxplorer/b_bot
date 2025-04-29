@@ -206,6 +206,8 @@
 // Fixed Left turn issue in motor.c.
 // April 21, 2025
 // Code cleanup
+// April 29, 2025
+// cmd_monitor.c: fixed string to integer function in veh_speed_cmd() and veh_turn_dly_cmd()
 
 
 /*
