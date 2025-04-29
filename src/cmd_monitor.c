@@ -285,6 +285,48 @@ unsigned int string_to_dec_int (char *string)
    return (result);
    }
 
+/**
+ * @brief Converts a string of digits to a positive integer.
+ *
+ * Assumes the string points directly to digits representing a positive integer.
+ * Stops converting at the first non-digit character.
+ * Does NOT handle signs, leading whitespace, or overflow.
+ * Returns 0 if the string is NULL or does not start with a digit.
+ *
+ * @param str Pointer to the string containing digits.
+ * @param maximum number of digits
+ * @return The converted integer value.
+ */
+ 
+// --- Manual String to Integer Conversion ---
+int cmd_string_to_int(const char *str, unsigned int digits_max) {
+    int result = 0;
+    int digits_processed = 0;
+
+    // Basic check for NULL pointer
+    if (str == NULL) {
+        return 0;
+    }
+
+    // Iterate through the string as long as characters are digits up to 3 digits
+    while (isdigit((unsigned char)*str)) {
+        int digit_value = *str - '0';        // Convert character digit to integer value
+        result = result * 10 + digit_value;  // Accumulate the result (no overflow check)
+
+        str++;                 // Move to the next character
+        digits_processed++;    // number of digits processed
+
+        // Limit number of digits (e.g., max 3)
+        if (digits_processed > digits_max) {
+           return 0; // Error: Too many digits
+        }
+    }
+
+    // The loop terminates when a non-digit is found or the string ends ('\0').
+    // 'result' contains the integer value parsed so far.
+    return result;
+}
+
 // ************************************
 //         COMMANDS
 // ************************************
@@ -428,17 +470,17 @@ int hc_sr04_disable_cmd() {
    }
    
 // ********************************************
-// TODO: debug code
-// Vehicle turn delay
-// Example command: trn,090
-// Must be three digits after comma.
+// Vehicle turn delay for timed turn at constant speed
+// Example command: trn,90
+// The integer after the comma is the turn angle in degrees.
+// Must be one, two, or three digits after comma.
 // Routine to adjust the delay in 60 mSec increments during a turn.
 // Adjustment must be decimal.
 // Motor PWM or duty cycle is proportional to speed.
 // The vehicle movement FSM runs at 60 mSec increments, so we count the number of 60 mSec
 // increments needed to turn the vechicle the desired amount. In other words, the turn
 // resolution is 60 mSec.
-// For TT motors it takes about 7 60 mSec increments to turn 90 degrees (TURNDLY_90DEG = 7).
+// For TT motors it takes about seven 60 mSec increments to turn 90 degrees (TURNDLY_90DEG = 7).
 // The turn duty cycle (or speed) is set to 5 (DCYCLE_TURN = 5).
 // So if we want to turn 90 degress, the turn delay should be set to 7. For 180, it should be 14.
 int veh_turn_dly_cmd(char *cp) {   // multiplier adjustment
@@ -447,19 +489,21 @@ int veh_turn_dly_cmd(char *cp) {   // multiplier adjustment
    int turn_angle = TURN_ANGLE;    // define in defs.h
    float ang_dly = TURNDLY_90DEG;
    unsigned char char_hndrds, char_tens, char_ones;
-//   int parsed_number = 0;
+
    // if a comma is included in the command then we have a decimal number following the comma
    if (*cp == ',') {
       *cp++;                                   // next character in string
-      char_hndrds = *cp++;                     // store hundreds position value
-      char_tens = *cp++;                       // store tens position value
-      char_ones = *cp;                         // store ones position value
-      
-      if (isdigit(char_ones) && isdigit(char_tens) && isdigit(char_hndrds)) {
-         turn_angle = (char_hndrds - '0') * 100 + (char_tens - '0') * 10 + (char_ones - '0');   // convert to integer
-//         ang_dly = 0.0778 * (float)turn_angle;  // delay = 7/90 * turn_angle
-         ang_dly = TURN_COEFF * (float)turn_angle;  // delay = TURNDLY_90DEG/90 * turn_angle
-         veh_ptr->veh_turn_dly = (int)ang_dly; // used in veh_movmnt_fsm.c
+
+      turn_angle = cmd_string_to_int(cp, 3);   // max of 3 digits
+      // set to default value if above conversion returned zero
+      if ( turn_angle == 0 ) {
+        turn_angle = 90;
+        veh_ptr->veh_turn_dly = TURNDLY_90DEG;      // used in veh_movmnt_fsm.c 
+      }
+      else {
+        ang_dly = TURN_COEFF * (float)turn_angle;  // delay = TURNDLY_90DEG/90 * turn_angle
+        veh_ptr->veh_turn_dly = (int)ang_dly;      // used in veh_movmnt_fsm.c
+      }
 
          // debug
 /*
@@ -474,25 +518,9 @@ int veh_turn_dly_cmd(char *cp) {   // multiplier adjustment
          uart_puts(UART_ID, "\r\n"); 
 */
          // end debug
-         
-         return (1);
-      } else {
-         veh_ptr->veh_turn_dly = TURNDLY_90DEG;  // used in veh_movmnt_fsm.c
-         return (2);      
-      }
-   }
-      
-/*
-// Original code
-   if (*cp == ',')
-      {
-      *cp++;                                   // next character in string
-      turn_angle = string_to_dec_int (cp);     // turn angle converted to integer
-      ang_result = 0.288 * (float)turn_angle;  // delay = x/90 * turn_angle
-      veh_ptr->veh_turn_dly = (int)ang_result; // used on veh_movmnt_fsm.c
+
       return (1);
-      }
-*/
+   }
    else {
       veh_ptr->veh_turn_dly = TURNDLY_90DEG;  // used in veh_movmnt_fsm.c
       return (2);
@@ -526,6 +554,58 @@ int veh_bwd_cmd()
 // ********************************************
 // Routine to configure PWM duty cycle to control vehicle speed.
 int veh_speed_cmd(char *cp_input) {
+//	   unsigned char spd_dutyCycle_char = '0';
+           
+           int speed_dutycycle = 0;
+
+	   //
+	   if (*cp_input != ',') {
+		   // set to default speed if no duty cycle value included
+		   // dutyCycle=(1 to 20); multiplier=250
+	       motor_set_dutyCycle(veh_ptr->dutyCycle_primary);      // set motor speeds; defined in motor.c and set in main.c
+	   }
+	   else {
+	       *cp_input++;                                          // inc to next parameter
+
+               speed_dutycycle = cmd_string_to_int(cp_input, 2);     // max of 2 digits
+               // set to default value if above conversion returned zero
+               if ( speed_dutycycle == 0 ) {
+                 veh_ptr->dutyCycle_primary = DCYCLE_PRIMARY;          // default value
+                 motor_set_dutyCycle(veh_ptr->dutyCycle_primary);      // set motor speeds; defined in motor.c and set in main.c
+               }
+               else {
+	         // Check duty cycle limits.  Must be between 2 and 20, inclusive
+	         if (speed_dutycycle>1 && speed_dutycycle<DCYCLE_MAX) {
+                   veh_ptr->dutyCycle_primary = speed_dutycycle;
+	    	   motor_set_dutyCycle(veh_ptr->dutyCycle_primary);    // set motor speeds
+	         }
+	         else {
+                   // set to default speed if no duty cycle value included
+	    	   motor_set_dutyCycle(DCYCLE_PRIMARY);    // set motor speeds
+	         }
+              }
+	   }
+
+    // debug
+/*
+    uart_puts(UART_ID, "Inside veh_speed_cmd().\r\n");
+    uart_puts(UART_ID, "Speed duty cycle = ");
+         
+    static char num_str[5];
+    sprintf(num_str, "%d", speed_dutycycle) ; 
+    uart_puts(UART_ID, num_str);
+    uart_puts(UART_ID, "\r\n");  
+    print_int(veh_ptr->dutyCycle_primary);
+    uart_puts(UART_ID, "\r\n"); 
+*/
+   // end debug
+
+   return (1);
+   }
+
+/*
+// original code
+int veh_speed_cmd(char *cp_input) {
 	   unsigned char spd_dutyCycle_char = '0';
 	   //
 	   if (*cp_input != ',') {
@@ -548,7 +628,7 @@ int veh_speed_cmd(char *cp_input) {
 	   }
    return (1);
    }
-
+*/
          
 // ****************************
 // MEMORY TASKS
