@@ -13,6 +13,10 @@
 
 // Debug
 //#define UART_LOG    // send debug message to UART
+// Watchdog Log
+//#define WDOG_LOG
+// FreeRTOS task durations
+//#define FTOS_LOG
 
 // BLE buffer sizes
 #define BLECMD_BUFFER_SIZE 64
