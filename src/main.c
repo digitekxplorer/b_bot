@@ -208,6 +208,8 @@
 // Code cleanup
 // April 29, 2025
 // cmd_monitor.c: fixed string to integer function in veh_speed_cmd() and veh_turn_dly_cmd()
+// May 1,2025
+// hcsr04.pio (HC-SR04 sensor): updated to use higher clock rate of 150MHz for RP2350
 
 
 /*
@@ -830,7 +832,7 @@ void vBTstack_HandlerTask( void * pvParameters ) {
           }
 
         time_matx[btstack_tsk_cnt][2][1] = time_us_64();        // save task end time
-#ifdef UART_LOG
+#ifdef FTOS_LOG
         btstack_duration_time = time_matx[btstack_tsk_cnt][2][1] - time_matx[btstack_tsk_cnt][2][0];
         uart_puts(UART_ID, "BTstack duration in uSec = ");
         sprintf(btstack_duration_str, "%d", btstack_duration_time) ;      // convert to a string 
@@ -888,7 +890,7 @@ void vTaskBlinkDefault() {
       vTaskDelay(TaskDEFLTLED_DLY);        // FreeRTOS delay
 
       time_matx[blink_tsk_cnt][1][1] = time_us_64();        // save task end time
-#ifdef UART_LOG
+#ifdef FTOS_LOG
       blink_duration_time = time_matx[blink_tsk_cnt][1][1] - time_matx[blink_tsk_cnt][1][0];
       uart_puts(UART_ID, "Blink duration in uSec = ");
       sprintf(blink_duration_str, "%d", blink_duration_time) ;      // convert to a string 
@@ -932,7 +934,8 @@ static void prvTimerCallback( TimerHandle_t xTimer ) {
     else if( xTimer == xWatchdogReloadTimer ) {
       // Clear the watchdog timer
       watchdog_update();
-#ifdef UART_LOG
+
+#ifdef WDOG_LOG
       uart_puts(UART_ID, "Watchdog timer callback executing ");
       static char num_str[5];
       sprintf(num_str, "%d", callbck_cnt) ;   // convert to string
