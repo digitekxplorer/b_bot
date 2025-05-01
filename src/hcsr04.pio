@@ -1,15 +1,18 @@
 
 ; Description of ultrasonic algorithm
-;
+; May 1, 2025
+; Updated to use higher clock rate of 150MHz for RP2350
+; ******************************************
+; Parameters for Pico 2 W (RP2350) using 150MHz clock
 ; start:
 ;
 ;   Send a 10 uSec pulse to the HCSR04 Trig pin to start the measurement
 ;       Assume the Trig pin is currently 0, set it to 1, wait 10 us, set it to 0
-;       A length of 10 us, with a clock of 125MHz this is 1250 ticks, or binary: 10011100010. 
-;       Assuming that the 10 us doesn't have to be very precise, round it down to 10011000000. 
+;       A length of 10 us, with a clock of 150MHz this is 1500 ticks, or binary: 0101 1101 1100. 
+;       Assuming that the 10 us doesn't have to be very precise, round it down to 0101 1100 0000. 
 ;       The delay can be achieved by:
 ;       
-;           set x 19        ; set x to 10011 (and clear the higher bits)
+;           set x 23        ; set x to 10111 (and clear the higher bits)
 ;           mov ISR x       ; copy x to ISR 
 ;           in NULL 6       ; shift in 6 more 0 bits
 ;           mov x ISR       ; move the ISR to x (which now contains 10011000000)
@@ -27,6 +30,33 @@
 ;       If the Echo pin is 0, the value (0xFFFFFFFF - x) represents the length of the echo pulse.
 ;       Note: each decrement of x and a test of the Echo pin is 2 pio clock cycles.
 ;   Push the bit-inversed value of x, i.e. (0xFFFFFFFF - x) into the Rx FIFO
+;
+;   According to the HCSR04 datasheet, we have to wait for 60ms before starting another measurement
+;       Use the same trick as above to create a delay. But now with values:
+;       9,000,000 clock cycles = 1000 1001 0101 0100 0100 0000, round down to 10001 + 19 * 0
+;
+; Go back to start
+
+
+;
+; ******************************************
+; Parameters for Pico W (RP2040) using 125MHz clock
+; start:
+;
+;   Send a 10 uSec pulse to the HCSR04 Trig pin to start the measurement
+;       Assume the Trig pin is currently 0, set it to 1, wait 10 us, set it to 0
+;       A length of 10 us, with a clock of 125MHz this is 1250 ticks, or binary: 10011100010. 
+;       Assuming that the 10 us doesn't have to be very precise, round it down to 10011000000. 
+;       The delay can be achieved by:
+;       
+;           set x 19        ; set x to 10011 (and clear the higher bits)
+;           mov ISR x       ; copy x to ISR 
+;           in NULL 6       ; shift in 6 more 0 bits
+;           mov x ISR       ; move the ISR to x (which now contains 10011000000)
+;       delay1:
+;           jmp x-- delay1  ; count down to 0: a delay of (about) 10 us
+;
+;       This results in a delay of about 10us.
 ;
 ;   According to the HCSR04 datasheet, we have to wait for 60ms before starting another measurement
 ;       Use the same trick as above to create a delay. But now with values:
@@ -52,7 +82,7 @@ continue:
     set pins 1      ; set the trigger to 1 
        
                     ; delay for 10 us (the length of the trigger pulse)
-    set x 19        ; set x to 10011 (and clear the higher bits)
+    set x 23        ; set x to 10111 (and clear the higher bits)
     mov ISR x       ; copy x to ISR 
     in NULL 6       ; shift in 6 more 0 bits
     mov x ISR       ; move the ISR to x (which now contains 10011000000)
@@ -74,9 +104,9 @@ timerstop:          ; echo pulse is over (or timer has reached 0)
     push noblock    ; push the ISR into the Rx FIFO
                     ; delay for 60ms (advice from datasheet to prevent triggering on echos)
 
-    set x 28        ; set x to 11100
+    set x 17        ; set x to 10001
     mov ISR x       ; copy x to ISR
-    in NULL 18      ; shift in 18 more bits
+    in NULL 19      ; shift in 18 more bits
     mov x ISR       ; move the ISR to x 
 delay2:
     jmp x-- delay2  ; delay (about) 60 ms
