@@ -17,6 +17,8 @@
 //#define WDOG_LOG
 // FreeRTOS task durations
 //#define FTOS_LOG
+// Vehicle Movement FSM Log
+#define FSM_LOG
 
 // BLE buffer sizes
 #define BLECMD_BUFFER_SIZE 64
@@ -39,7 +41,7 @@ typedef struct {
   uint32_t dutyCycle_primary;  // PWM duty cycle for motor speed; forward and reverse
   uint32_t dutyCycle_turn;     // PWM duty cycle for motor speed; used when turning
   uint32_t veh_turn_dly;       // vechicle turn delay in 60 mSec increments
-  bool     active;             // vehicle in active command mode (used in monitor.c and main.c)
+  bool     veh_active;         // vehicle in active mode (used in monitor.c, main.c, veh_movmnt_fsm.c, pico_init.c)
   bool     led_pcb_on;         // B_Bot PCB LED status
 }  Veh_params_t; 
 //static Veh_params_t veh;              // structure name; for PC build
@@ -84,7 +86,7 @@ Veh_params_t veh;              // structure name
 // Initialized in main.c
 // Used in: main.c and veh_movmnt_fsm.c
 // Using structures we have access to these parameters across multiple files.
-
+/*
 typedef struct {
   uint32_t veh_state;          // vehicle movement state machine states
   float cm;                    // HC-SR04 distance measurement in centimeters
@@ -94,6 +96,7 @@ typedef struct {
 extern Fsm_params_t fsm;       // Declaration of the global variable 'fsm'
 // Pointer to vehicle movement parameters structure for use with 'arrow' operator
 #define fsm_ptr ((Fsm_params_t *)&fsm)
+*/
 
 /*
 // Old method for direct access of structure members with "Dot" operator
@@ -183,6 +186,7 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 //#define TURNDLY_90DEG    30
 // Pre-processor Directives Section
 // Auto-detectition and Control Vechicle states
+/*
 #define VEHSTOP_GOFOR_AUTO      1        // Vehicle stop, then go forward
 #define VEHFORWARD_AUTO         2        // Vehicle direction set to forward
 #define VEHSTOP_INITBWD_AUTO    3        // Initiate backward movement
@@ -203,6 +207,7 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 #define VEHFORWARD_MAN3         14
 #define VEHSTOP_GOBACK_MAN3     15
 #define VEHBACKWARD_MAN3        16
+*/
 
 // ***************************
 // Pico UART
