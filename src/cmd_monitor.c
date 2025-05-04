@@ -22,6 +22,7 @@
 #include "cmd_monitor.h"
 #include "motor.h"
 #include "defs.h"
+#include "veh_movmnt_fsm.h"
 
 #include "print_num.h"
 
@@ -70,7 +71,7 @@ void check_ctrl_stack();         // check control stack
 
 
 // Routine to initialize application.
-// Note: Remember to update NUM_CMDS in defs.h when user commands are added.  The number
+// Note: Remember to update NUM_CMDS when user commands are added.  The number
 // of commands must match the command index number plus one.
 void app_set(void) {                   // initialize command array
    command[0].func = memory_cmd;       // memory command
@@ -79,8 +80,8 @@ void app_set(void) {                   // initialize command array
    command[1].cmnd = "fwd";
    command[2].func = veh_stop_cmd;     // vehicle stop command; turn off motors command TODO: remove, debug only
    command[2].cmnd = "stp";
-   command[3].func = veh_rev_cmd;      // Manual mode, vehicle reverse movement TODO: remove, debug only
-   command[3].cmnd = "rev";
+   command[3].func = tst_cmd;          // Test command, debug only
+   command[3].cmnd = "tst";
    command[4].func = en_pwm_cmd;       // Enable motor PWM
    command[4].cmnd = "epw";
    command[5].func = dis_pwm_cmd;      // Disable motor PWM
@@ -98,8 +99,8 @@ void app_set(void) {                   // initialize command array
    command[10].cmnd = "rgt";
    command[11].func = veh_lTrn_cmd;       // Manual mode, vehicle Left turn
    command[11].cmnd = "lft";
-   command[12].func = veh_bwd_cmd;       // Manual mode, vehicle backward movement
-   command[12].cmnd = "bwd";
+   command[12].func = veh_rev_cmd;       // Manual mode, vehicle reverse movement
+   command[12].cmnd = "rev";
    command[13].func = veh_speed_cmd;     // configure PWM duty cycle to control speed
    command[13].cmnd = "spd";
    
@@ -355,9 +356,9 @@ int memory_cmd(char *cp)           // first function of Memory command
 // Vehicle forward using PWM to control motors
 int veh_fwd_cmd(char *cp_input) {
    unsigned char dutyCycle_char = '0';
-   
+
+#ifdef UART_LOG   
          // debug
-/*
          uart_puts(UART_ID, "Inside veh_fwd_cmd().\r\n");
          uart_puts(UART_ID, "Turn delay = ");
          
@@ -365,10 +366,10 @@ int veh_fwd_cmd(char *cp_input) {
          sprintf(num_str, "%d", veh_ptr->veh_turn_dly) ; 
          uart_puts(UART_ID, num_str);
          uart_puts(UART_ID, "\r\n");  
-         print_int(veh_ptr->veh_turn_dly);
-         uart_puts(UART_ID, "\r\n"); 
-*/
+//         print_int(veh_ptr->veh_turn_dly);
+//         uart_puts(UART_ID, "\r\n"); 
          // end debug
+#endif
 
 
 
@@ -398,11 +399,10 @@ int veh_fwd_cmd(char *cp_input) {
 
    // Set TB6612FNG Dual Motor Driver to CCW to move forward
    motor_forward();
-   veh_ptr->active = true;                   // vehicle in active mode
+   veh_ptr->veh_active = true;              // vehicle in active mode
 
    // After PWM duty cycle for both motors is set, enable PWM
    motor_pwm_enable();
-
 
    return (1);
    }
@@ -412,7 +412,7 @@ int veh_fwd_cmd(char *cp_input) {
 int veh_stop_cmd() {
    // Motor#1 and Motor#2
    motors_off();      // motor.c
-   veh_ptr->active = false;         // vehicle is not in active mode
+   veh_ptr->veh_active = false;         // vehicle is not in active mode
    return (1);
    }
 
@@ -424,15 +424,18 @@ int veh_halt_cmd() {
    // also stop HC-SR04
    PIO pio = pio0;
    uint sm = 0;
-   pio_sm_put_blocking(pio, sm, 2*SM_START_CMD);  // stop cmd value = 2*5  
-   veh_ptr->active = false;         // vehicle is not in active mode
+   pio_sm_put_blocking(pio, sm, 2*SM_START_CMD);  // stop cmd value = 2*5
+
+   veh_ptr->veh_active = false;         // vehicle is not in active mode
+   trigger_vehicle_fsm_reset();         // reset vehicle movement FSM to start over
    return (1);
    }
 
-// Vehicle Reverse command
-int veh_rev_cmd() {
-   // Motor#1 and Motor#2
-   motor_backward();     // motor.c
+
+// Test command
+// For now, only send message via UART.
+int tst_cmd() {
+   uart_puts(UART_ID, "Inside tst_cmd().\r\n");
    return (1);
    }
 
@@ -505,8 +508,8 @@ int veh_turn_dly_cmd(char *cp) {   // multiplier adjustment
         veh_ptr->veh_turn_dly = (int)ang_dly;      // used in veh_movmnt_fsm.c
       }
 
+#ifdef UART_LOG
          // debug
-/*
          uart_puts(UART_ID, "Inside veh_turn_dly_cmd().\r\n");
          uart_puts(UART_ID, "Turn delay = ");
          
@@ -516,8 +519,8 @@ int veh_turn_dly_cmd(char *cp) {   // multiplier adjustment
          uart_puts(UART_ID, "\r\n");  
          print_int(veh_ptr->veh_turn_dly);
          uart_puts(UART_ID, "\r\n"); 
-*/
          // end debug
+#endif
 
       return (1);
    }
@@ -532,6 +535,7 @@ int veh_turn_dly_cmd(char *cp) {   // multiplier adjustment
 int veh_rTrn_cmd()
 {
 	veh_ptr->manual_cmd_mode = 1;  // manual mode; No auto obstacle detection mode using HC-SR04
+//        veh_ptr->veh_active = true;    // set to active mode to enable vehicle movement; used in veh_movmnt_fsm.c
 	return (1);
 }
 
@@ -544,12 +548,11 @@ int veh_lTrn_cmd()
 }
 
 // ********************************************
-// Vehicle backward movement; Manual mode
-int veh_bwd_cmd()
-{
-	veh_ptr->manual_cmd_mode = 3;  // manual mode; No auto obstacle detection mode using HC-SR04
-	return (1);
-}
+// Vehicle Reverse movement; Manual mode
+int veh_rev_cmd() {
+   veh_ptr->manual_cmd_mode = 3;  // manual mode; No auto obstacle detection mode using HC-SR04
+   return (1);
+   }
 
 // ********************************************
 // Routine to configure PWM duty cycle to control vehicle speed.
@@ -586,8 +589,8 @@ int veh_speed_cmd(char *cp_input) {
               }
 	   }
 
+#ifdef UART_LOG
     // debug
-/*
     uart_puts(UART_ID, "Inside veh_speed_cmd().\r\n");
     uart_puts(UART_ID, "Speed duty cycle = ");
          
@@ -597,8 +600,8 @@ int veh_speed_cmd(char *cp_input) {
     uart_puts(UART_ID, "\r\n");  
     print_int(veh_ptr->dutyCycle_primary);
     uart_puts(UART_ID, "\r\n"); 
-*/
    // end debug
+#endif
 
    return (1);
    }
