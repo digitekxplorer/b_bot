@@ -210,6 +210,9 @@
 // cmd_monitor.c: fixed string to integer function in veh_speed_cmd() and veh_turn_dly_cmd()
 // May 1,2025
 // hcsr04.pio (HC-SR04 sensor): updated to use higher clock rate of 150MHz for RP2350
+// May 5, 2025
+// Major update to veh_movmnt_fsm.c. Replaced multiple FSMs with one state machine to 
+// control movement.
 
 
 /*
@@ -283,7 +286,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // Definition of the global variable in defs.h
 Veh_params_t veh;           // global variable 'veh'
-Fsm_params_t fsm;           // global variable 'fsm'
+//Fsm_params_t fsm;           // global variable 'fsm'
 pwm_slice_t slnum;          // global variable 'slum'
 Ble_cmd_text_t blecmdtxt;   // global variable 'blecmdtxt'
 
@@ -662,7 +665,7 @@ void app_set(void) {                   // initialize command array
    command[0].cmnd = "mem";            // memory command
    command[1].cmnd = "fwd";            // vehicle forward command; auto mode
    command[2].cmnd = "stp";            // vehicle stop command; turn off motors command
-   command[3].cmnd = "rev";            // Manual mode, vehicle reverse movement
+   command[3].cmnd = "tst";            // Test command
    command[4].cmnd = "epw";            // Enable motor PWM
    command[5].cmnd = "dpw";            // Disable motor PWM
    command[6].cmnd = "son";            // enable 10 uSec HC-SR04 ultrasonic trigger pulse
@@ -671,7 +674,7 @@ void app_set(void) {                   // initialize command array
    command[9].cmnd = "hlt";            // Vehicle Halt command; stop motors and HC-SR04
    command[10].cmnd = "rgt";           // Manual mode, vehicle Right turn
    command[11].cmnd = "lft";           // Manual mode, vehicle Left turn
-   command[12].cmnd = "bwd";           // Manual mode, vehicle backward movement
+   command[12].cmnd = "rev";           // Manual mode, vehicle reverse movement
    command[13].cmnd = "spd";           // configure PWM duty cycle to control speed
 */
 
@@ -948,7 +951,8 @@ static void prvTimerCallback( TimerHandle_t xTimer ) {
     // xTimer for blue blinking LED timer
     // Also used for heartbeat counter and to update SSD1306 display
     else {
-      if ((veh_ptr->active == true) | (pshbttn_fwd == true)) {
+//      if ((veh_ptr->veh_active == true) | (pshbttn_fwd == true)) {
+      if ( veh_ptr->veh_active == true ) {                                  // TODO: I don't think I need pshbttn_fwd
 	    gpio_put(BLUE_LED, !gpio_get(BLUE_LED));  // read LED status & toggle LED
 	  }
 	  else {
@@ -1148,8 +1152,9 @@ static void vPioRxDeferredIntrHandlerTask( void * pvParameters ) {
     uint32_t rx_dat_sum=0;
     uint32_t avg_clk_cycles=0;
     uint32_t hc_sr04_echo_rdy = 0;
+    uint32_t veh2obs_cm = 0;
     
-    // load rx_dat_ary[4] with default values to prevent backward movement when started
+    // load rx_dat_ary[4] with default values to prevent reverse movement when started
     for (uint32_t jj=0; jj<4; jj++) {
        rx_dat_ary[jj] = DEFLT_RXDATARY;   // defined in defs.h
     }
@@ -1199,20 +1204,24 @@ static void vPioRxDeferredIntrHandlerTask( void * pvParameters ) {
             // - speed of sound in air is about 340 m/s
             // - the sound travels from the HCSR04 to the object and back (twice the distance)
             // we can calculate the distance in cm by multiplying with 0.000136
-            fsm_ptr->cm = (float)avg_clk_cycles * HCSR04_COEFF;    // HCSR04_COEFF defined in defs.h
+//            fsm_ptr->cm = (float)avg_clk_cycles * HCSR04_COEFF;    // HCSR04_COEFF defined in defs.h
+            veh2obs_cm = (uint32_t)((float)avg_clk_cycles * HCSR04_COEFF);    // HCSR04_COEFF defined in defs.h
 #ifdef UART_LOG 
             uart_puts(UART_ID, "cm = ");
-            print_float(fsm_ptr->cm);
+            print_int(veh2obs_cm);
+//            print_float(fsm_ptr->cm);
             uart_puts(UART_ID, "\r\n");     // debug
 #endif
           }
 
+/*
           // To avoid vechicle dither when cm = MINDIS_STOPMTRS, subtract 2 cm
           if ((fsm_ptr->veh_state == VEHBACKWARD_AUTO) || (fsm_ptr->veh_state == VEHSTOP_GOBACK_AUTO)) {
         	// when moving backward to avoid obstacle, force vechicle to move back an
         	// extra inch.
         	fsm_ptr->cm = fsm_ptr->cm - 2.0;
           }
+*/
           
           // ********************************
           // Call Vechicle State Machine
@@ -1222,33 +1231,44 @@ static void vPioRxDeferredIntrHandlerTask( void * pvParameters ) {
           // There are two modes of operation: 1) auto obstacle detection, and
           // 2) manual mode where the user has issued a command via Bluetooth LE.
           // But first, must wait for HC-SR04 ultrasonic device to be ready.
-          // Currently there are 4 distinct FSMs:
+          // There is one FSM:
           // Auto detect Mode
           // 1) forward_auto_fsm()  Auto obstacle detection
           // Manual Mode
           // 2) userCmd_rTrn_fsm()   User requested right turn
           // 3) userCmd_lTrn_fsm()   User requested left turn
           // 4) userCmd_bwd_fsm()    User requested backward movement
+
+          if (hc_sr04_echo_rdy==1) {
+             update_veh_state(veh2obs_cm);    // Execute from state set above
+          }
+
+/*
           if (hc_sr04_echo_rdy==1) {
         	if (veh_ptr->manual_cmd_mode==0) {            // auto obstacle detection mode using HC-SR04
-        		forward_auto_fsm();              // Move forward in auto-detect mode
+//             update_veh_state(veh2obs_cm);    // Move forward in auto-detect mode
         	}
         	// in manual mode; execute User command
-        	else {
-        		if (veh_ptr->manual_cmd_mode==1) {        // Vehicle right turn; Manual mode
-        			userCmd_rTrn_fsm();
-        		}
-        		else if (veh_ptr->manual_cmd_mode==2) {  // Vehicle left turn; Manual mode
-        			userCmd_lTrn_fsm();
-        		}
-        		else {                          // Vehicle backward movement; Manual mode
-        			userCmd_bwd_fsm();
-        		}
-    		// When returning to main FSM; Stop, then go forward
-    		// In VEHSTOP_GOFOR_AUTO state, motor output pins will be re-enabled.
-    		fsm_ptr->veh_state = VEHSTOP_GOFOR_AUTO;     // next state: Stop, then go forward
+        	else if (veh_ptr->manual_cmd_mode==1) {  // Vehicle right turn; Manual mode
+		   trigger_manual_turn_right();         // GoTo MANUAL_INIT_TURN_RIGHT
         	}
+        	else if (veh_ptr->manual_cmd_mode==2) {  // Vehicle left turn; Manual mode
+                   trigger_manual_turn_left();
+        	}
+        	else if (veh_ptr->manual_cmd_mode==3) {  // Vehicle reverse movement; Manual mode
+                   trigger_manual_reverse();
+        	}
+        	else {
+//                   trigger_manual_backward();
+                   veh_ptr->manual_cmd_mode = 0;   // set to auto mode
+        	}
+    		// When returning to main FSM; Stop, then go forward
+
+                update_veh_state(veh2obs_cm);    // Execute from state set above
+	        veh_ptr->manual_cmd_mode = 0;    // set to auto mode
           }
+*/
+
           // ********************************
           // End of Vechicle State Machine
           // ********************************   
@@ -1304,22 +1324,22 @@ static void vPshbttnDeferredIntrHandlerTask( void * pvParameters ) {
           // To get here the event must have occurred.  Process the pushbutton event
           // to either start moving forward or stop
 
-#ifdef UART_LOG
+//#ifdef UART_LOG
           uart_puts(UART_ID, "Pushbutton Deferred Interrupt Handler task - Processing event.\r\n");
-#endif
+//#endif
 
           vTaskDelay(5);        // FreeRTOS delay; debounce for 5 mSec
           if (!gpio_get(BUTTON_GPIO)) {  // read pushbutton status after debounce delay
-#ifdef UART_LOG
+//#ifdef UART_LOG
              uart_puts(UART_ID, "Pushbutton still LOW after debounce delay.\r\n");
-#endif  
+//#endif  
           
              // Are we in pushbutton forward mode  
              // if Vehicle is already active, send 'stop' and HC-SR04 off commands       
              if ( pshbttn_fwd == true ) {  
-#ifdef UART_LOG
+//#ifdef UART_LOG
                 uart_puts(UART_ID, "Vehicle is in active mode.\r\n");
-#endif          
+//#endif          
                 // when pushbutton is pressed and already active, send 'stop' command
                 veh_halt_cmd();
                 pshbttn_fwd = false;  
@@ -1327,9 +1347,9 @@ static void vPshbttnDeferredIntrHandlerTask( void * pvParameters ) {
              }
              // if Vehicle is not active, send 'forward' command to start moving
              else {                                                    // Vehicle is NOT active
-#ifdef UART_LOG
+//#ifdef UART_LOG
                 uart_puts(UART_ID, "Vehicle is NOT in active mode.\r\n");
-#endif 
+//#endif 
 
                 // when pushbutton is pressed move vehicle forward
                 char blank = ' ';
@@ -1339,9 +1359,9 @@ static void vPshbttnDeferredIntrHandlerTask( void * pvParameters ) {
           }         // end of pushbutton high 
           
           else {
-#ifdef UART_LOG
+//#ifdef UART_LOG
              uart_puts(UART_ID, "Pushbutton HIGH after debounce delay.\r\n");
-#endif              
+//#endif              
           }
 
           // Enable puahbotton interrupt.
