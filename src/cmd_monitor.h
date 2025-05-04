@@ -26,7 +26,7 @@ void check_ctrl_stack();         // check control stack
 int memory_cmd(char *cp);        // microcontroller internal memory
 int veh_fwd_cmd(char *cp);       // vehicle forward command, turn on motors; auto mode
 int veh_stop_cmd();              // vehicle stop command, turn off motors
-int veh_rev_cmd();               // vehicle reverse command
+int tst_cmd();                   // Test command
 int en_pwm_cmd();                // Enable motor PWM
 int dis_pwm_cmd();               // Disable motor PWM
 int digitize_cmd();              // A/D digitizing
@@ -38,7 +38,7 @@ int veh_halt_cmd();              // Vehicle Halt command; stop motors and HC-SR0
 int veh_turn_dly_cmd(char *cp);  // Vehicle turn delay; adjust the delay in 60 mSec increments
 int veh_rTrn_cmd();              // vehicle right turn; manual mode
 int veh_lTrn_cmd();              // vehicle left turn; manual mode
-int veh_bwd_cmd();               // vehicle backward movement; manual mode
+int veh_rev_cmd();               // vehicle reverse movement; manual mode
 int veh_speed_cmd(char *cp_input); // configure PWM duty cycle to control vehicle speed
 
 // Tasks
