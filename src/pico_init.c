@@ -152,13 +152,13 @@ void pico_uart_init(void) {
 // dutyCycle_primary=default   PWM duty cycle for motor speed
 // dutyCycle_turn=2      PWM duty cycle for motor speed; used when turning
 // veh_turn_dly=26       vechicle turn delay in 60 mSec increments
-// active=false          vehicle in active command mode
+// fwd_active=false      vehicle not in foward command mode
 void veh_stuct_init() {
     veh_ptr->manual_cmd_mode   = 0;
     veh_ptr->dutyCycle_primary = DCYCLE_PRIMARY;   // PWM duty cycle for motor speed; forward and reverse
     veh_ptr->dutyCycle_turn    = DCYCLE_TURN;      // set to turn speed for consistent speed during turns
     veh_ptr->veh_turn_dly      = TURNDLY_90DEG;
-    veh_ptr->active            = false;
+    veh_ptr->veh_active        = false;
     veh_ptr->led_pcb_on        = false;            // B_Bot PCB LED status
     
     // structure: Vehicle Movement FSM parameters
@@ -167,8 +167,8 @@ void veh_stuct_init() {
     // veh_state=VEHSTOP_GOFOR_AUTO    vechicle state set forward
     // cm = MINDIS_STOPMTRS            start with 10.0 to allow motors to start
     //
-    fsm_ptr->veh_state         = VEHSTOP_GOFOR_AUTO;
-    fsm_ptr->cm                = MINDIS_STOPMTRS + 5;
+//    fsm_ptr->veh_state         = VEHSTOP_GOFOR_AUTO;
+//    fsm_ptr->cm                = MINDIS_STOPMTRS + 5;
     
     // char array of client message displayed on SSD1306
     memcpy(blecmdtxt_ptr->client_message, "Hi Alfredo", 10) ;
