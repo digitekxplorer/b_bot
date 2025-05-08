@@ -158,17 +158,32 @@ void update_veh_state(uint32_t veh2obs_cm) {
          // Could transition to AUTO_START_FORWARD automatically or via command.
          // For now, stays IDLE until state is changed externally.
          // Or, could default to starting:
-         if ( veh_ptr->veh_active == true ) {
+		 // in Auto mode; execute User command
+         if ( veh_ptr->veh_fwd_active == true ) {
             if ( veh_ptr->manual_cmd_mode==0 ) {
                g_rover_state.current_state = AUTO_START_FORWARD;
-            }
-            // in manual mode; execute User command
-            else if (veh_ptr->manual_cmd_mode==1) {  // Vehicle right turn; Manual mode
-               g_rover_state.current_state = MANUAL_INIT_TURN_RIGHT;         // GoTo MANUAL_INIT_TURN_RIGHT
             }
             else {
                uart_puts(UART_ID, "Error in update_veh_state().\r\n");
             }
+         }
+			
+		 // in manual mode; execute User command
+         if ( veh_ptr->veh_turn_active == true ) {
+            // Right Turn
+            if ( veh_ptr->manual_cmd_mode==1 ) {
+#ifdef FSM_LOG
+               uart_puts(UART_ID, "IDLE Turn Right\r\n");
+#endif
+               g_rover_state.current_state = MANUAL_INIT_TURN_RIGHT;         // GoTo MANUAL_INIT_TURN_RIGHT
+            }
+            // Left Trun
+            else if ( veh_ptr->manual_cmd_mode==2 ) {  // Vehicle Left turn; Manual mode
+               g_rover_state.current_state = MANUAL_INIT_TURN_LEFT;         // GoTo MANUAL_INIT_TURN_LEFT
+            }
+            else {
+               uart_puts(UART_ID, "Error in update_veh_state().\r\n");
+            }			
          }
          break;
 
@@ -314,8 +329,21 @@ void update_veh_state(uint32_t veh2obs_cm) {
 #endif
          // Check if the turn duration has elapsed
          if (check_timed_action_complete(&g_rover_state, TURN_DURATION_TICKS)) {
-            // Turn complete, revert to autonomous mode (or IDLE if preferred)
-            g_rover_state.current_state = AUTO_START_FORWARD;
+            // Turn complete, revert to autonomous mode (or IDLE if preferred)    TODO: return to IDLE
+//            g_rover_state.current_state = AUTO_START_FORWARD;
+            // veh_ptr->veh_turn_active == false;                  // not needed with veh_halt_cmd()
+            if ( veh_ptr->manual_cmd_mode == 0 ) {
+               // Turn complete, revert to autonomous mode (or IDLE if preferred)    TODO: return to IDLE
+               g_rover_state.current_state = AUTO_START_FORWARD;
+            }
+            else {
+               veh_ptr->manual_cmd_mode = 0;
+               veh_halt_cmd();                          // stop HC-SR04 trigger pulse and 60 mSec ticks
+               g_rover_state.current_state = IDLE;
+            }
+//            veh_ptr->manual_cmd_mode = 0;
+//            veh_halt_cmd();                          // stop HC-SR04 trigger pulse and 60 mSec ticks
+//            g_rover_state.current_state = IDLE;
             // If you have a specific flag for manual mode, clear it here.
             // veh_ptr->manual_cmd_mode = 0; // Example if using such a flag
          }
@@ -349,8 +377,23 @@ void update_veh_state(uint32_t veh2obs_cm) {
 #endif
          // Check if the turn duration has elapsed
          if (check_timed_action_complete(&g_rover_state, TURN_DURATION_TICKS)) {
-            // Turn complete, revert to autonomous mode
-            g_rover_state.current_state = AUTO_START_FORWARD;
+            // Turn complete, revert to autonomous mode                    TODO: return to IDLE
+//            g_rover_state.current_state = AUTO_START_FORWARD;
+            // veh_ptr->veh_turn_active == false;       // not needed with veh_halt_cmd()
+
+            if ( veh_ptr->manual_cmd_mode == 0 ) {
+               // Turn complete, revert to autonomous mode (or IDLE if preferred)    TODO: return to IDLE
+               g_rover_state.current_state = AUTO_START_FORWARD;
+            }
+            else {
+               veh_ptr->manual_cmd_mode = 0;
+               veh_halt_cmd();                          // stop HC-SR04 trigger pulse and 60 mSec ticks
+               g_rover_state.current_state = IDLE;
+            }
+
+//            veh_ptr->manual_cmd_mode = 0;
+//            veh_halt_cmd();                          // stop HC-SR04 trigger pulse and 60 mSec ticks
+//            g_rover_state.current_state = IDLE;
             // veh_ptr->manual_cmd_mode = 0; // Example if using such a flag
          }
          // else: Continue turning
