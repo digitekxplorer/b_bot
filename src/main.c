@@ -213,6 +213,8 @@
 // May 5, 2025
 // Major update to veh_movmnt_fsm.c. Replaced multiple FSMs with one state machine to 
 // control movement.
+// May 8, 2025
+// Update to veh_movmnt_fsm.c, input to state IDLE: veh_ptr->manual_cmd_mode
 
 
 /*
@@ -951,8 +953,8 @@ static void prvTimerCallback( TimerHandle_t xTimer ) {
     // xTimer for blue blinking LED timer
     // Also used for heartbeat counter and to update SSD1306 display
     else {
-//      if ((veh_ptr->veh_active == true) | (pshbttn_fwd == true)) {
-      if ( veh_ptr->veh_active == true ) {                                  // TODO: I don't think I need pshbttn_fwd
+//      if ((veh_ptr->veh_fwd_active == true) | (pshbttn_fwd == true)) {
+      if ( veh_ptr->veh_fwd_active == true ) {                                  // TODO: I don't think I need pshbttn_fwd
 	    gpio_put(BLUE_LED, !gpio_get(BLUE_LED));  // read LED status & toggle LED
 	  }
 	  else {
