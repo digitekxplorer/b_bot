@@ -154,12 +154,13 @@ void pico_uart_init(void) {
 // veh_turn_dly=26       vechicle turn delay in 60 mSec increments
 // fwd_active=false      vehicle not in foward command mode
 void veh_stuct_init() {
-    veh_ptr->manual_cmd_mode   = 0;
-    veh_ptr->dutyCycle_primary = DCYCLE_PRIMARY;   // PWM duty cycle for motor speed; forward and reverse
-    veh_ptr->dutyCycle_turn    = DCYCLE_TURN;      // set to turn speed for consistent speed during turns
-    veh_ptr->veh_turn_dly      = TURNDLY_90DEG;
-    veh_ptr->veh_active        = false;
-    veh_ptr->led_pcb_on        = false;            // B_Bot PCB LED status
+    veh_ptr->manual_cmd_mode      = 0;
+    veh_ptr->dutyCycle_primary    = DCYCLE_PRIMARY;   // PWM duty cycle for motor speed; forward and reverse
+    veh_ptr->dutyCycle_turn       = DCYCLE_TURN;      // set to turn speed for consistent speed during turns
+    veh_ptr->veh_turn_dly         = TURNDLY_90DEG;
+    veh_ptr->veh_fwd_active       = false;
+	veh_ptr->veh_turn_active  = false;            // Manual turn mode
+    veh_ptr->led_pcb_on           = false;            // B_Bot PCB LED status
     
     // structure: Vehicle Movement FSM parameters
     // Initialize Vehicle Movement FSM parameters
