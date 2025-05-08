@@ -41,7 +41,8 @@ typedef struct {
   uint32_t dutyCycle_primary;  // PWM duty cycle for motor speed; forward and reverse
   uint32_t dutyCycle_turn;     // PWM duty cycle for motor speed; used when turning
   uint32_t veh_turn_dly;       // vechicle turn delay in 60 mSec increments
-  bool     veh_active;         // vehicle in active mode (used in monitor.c, main.c, veh_movmnt_fsm.c, pico_init.c)
+  bool     veh_fwd_active;     // vehicle in active auto forward mode (used in monitor.c, main.c, veh_movmnt_fsm.c, pico_init.c)
+  bool     veh_turn_active;    // vehicle in active manual turn mode (used in monitor.c, main.c, veh_movmnt_fsm.c, pico_init.c)
   bool     led_pcb_on;         // B_Bot PCB LED status
 }  Veh_params_t; 
 //static Veh_params_t veh;              // structure name; for PC build
