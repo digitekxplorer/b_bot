@@ -399,7 +399,7 @@ int veh_fwd_cmd(char *cp_input) {
 
    // Set TB6612FNG Dual Motor Driver to CCW to move forward
    motor_forward();
-   veh_ptr->veh_active = true;              // vehicle in active mode
+   veh_ptr->veh_fwd_active = true;              // vehicle in active mode
 
    // After PWM duty cycle for both motors is set, enable PWM
    motor_pwm_enable();
@@ -412,7 +412,8 @@ int veh_fwd_cmd(char *cp_input) {
 int veh_stop_cmd() {
    // Motor#1 and Motor#2
    motors_off();      // motor.c
-   veh_ptr->veh_active = false;         // vehicle is not in active mode
+   veh_ptr->veh_fwd_active = false;         // vehicle is not in active mode
+   veh_ptr->veh_turn_active = false;     // Manual turn mode
    return (1);
    }
 
@@ -426,7 +427,8 @@ int veh_halt_cmd() {
    uint sm = 0;
    pio_sm_put_blocking(pio, sm, 2*SM_START_CMD);  // stop cmd value = 2*5
 
-   veh_ptr->veh_active = false;         // vehicle is not in active mode
+   veh_ptr->veh_fwd_active = false;         // vehicle is not in active mode
+   veh_ptr->veh_turn_active = false;    // Manual turn mode
    trigger_vehicle_fsm_reset();         // reset vehicle movement FSM to start over
    return (1);
    }
@@ -534,8 +536,11 @@ int veh_turn_dly_cmd(char *cp) {   // multiplier adjustment
 // Vehicle right turn; Manual mode
 int veh_rTrn_cmd()
 {
-	veh_ptr->manual_cmd_mode = 1;  // manual mode; No auto obstacle detection mode using HC-SR04
-//        veh_ptr->veh_active = true;    // set to active mode to enable vehicle movement; used in veh_movmnt_fsm.c
+	veh_ptr->manual_cmd_mode = 1;      // manual mode; No auto obstacle detection mode using HC-SR04
+	veh_ptr->veh_turn_active = true;   // Manual turn mode
+    // Enable HC-SR04 trigger pulse
+    hc_sr04_enable_cmd();              // trigger pulse needed to enable 60 mSec ticks used in veh_movmnt_fsm.c
+//        veh_ptr->veh_fwd_active = true;    // set to active mode to enable vehicle movement; used in veh_movmnt_fsm.c
 	return (1);
 }
 
@@ -543,7 +548,10 @@ int veh_rTrn_cmd()
 // Vehicle left turn; Manual mode
 int veh_lTrn_cmd()
 {
-	veh_ptr->manual_cmd_mode = 2;  // manual mode; No auto obstacle detection mode using HC-SR04
+	veh_ptr->manual_cmd_mode = 2;      // manual mode; No auto obstacle detection mode using HC-SR04
+	veh_ptr->veh_turn_active = true;   // Manual turn mode
+    // Enable HC-SR04 trigger pulse
+    hc_sr04_enable_cmd();              // trigger pulse needed to enable 60 mSec ticks used in veh_movmnt_fsm.c
 	return (1);
 }
 
