@@ -536,11 +536,10 @@ int veh_turn_dly_cmd(char *cp) {   // multiplier adjustment
 // Vehicle right turn; Manual mode
 int veh_rTrn_cmd()
 {
-	veh_ptr->manual_cmd_mode = 1;      // manual mode; No auto obstacle detection mode using HC-SR04
+	veh_ptr->manual_cmd_mode = 1;      // manual mode
 	veh_ptr->veh_turn_active = true;   // Manual turn mode
     // Enable HC-SR04 trigger pulse
     hc_sr04_enable_cmd();              // trigger pulse needed to enable 60 mSec ticks used in veh_movmnt_fsm.c
-//        veh_ptr->veh_fwd_active = true;    // set to active mode to enable vehicle movement; used in veh_movmnt_fsm.c
 	return (1);
 }
 
@@ -548,7 +547,7 @@ int veh_rTrn_cmd()
 // Vehicle left turn; Manual mode
 int veh_lTrn_cmd()
 {
-	veh_ptr->manual_cmd_mode = 2;      // manual mode; No auto obstacle detection mode using HC-SR04
+	veh_ptr->manual_cmd_mode = 2;      // manual mode
 	veh_ptr->veh_turn_active = true;   // Manual turn mode
     // Enable HC-SR04 trigger pulse
     hc_sr04_enable_cmd();              // trigger pulse needed to enable 60 mSec ticks used in veh_movmnt_fsm.c
@@ -558,7 +557,10 @@ int veh_lTrn_cmd()
 // ********************************************
 // Vehicle Reverse movement; Manual mode
 int veh_rev_cmd() {
-   veh_ptr->manual_cmd_mode = 3;  // manual mode; No auto obstacle detection mode using HC-SR04
+   veh_ptr->manual_cmd_mode = 3;       // manual mode
+   veh_ptr->veh_turn_active = true;    // Also needed for reverse mode
+    // Enable HC-SR04 trigger pulse
+    hc_sr04_enable_cmd();              // trigger pulse needed to enable 60 mSec ticks used in veh_movmnt_fsm.c
    return (1);
    }
 
