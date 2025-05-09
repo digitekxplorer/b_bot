@@ -18,7 +18,7 @@
 // FreeRTOS task durations
 //#define FTOS_LOG
 // Vehicle Movement FSM Log
-#define FSM_LOG
+//#define FSM_LOG
 
 // BLE buffer sizes
 #define BLECMD_BUFFER_SIZE 64
@@ -45,22 +45,9 @@ typedef struct {
   bool     veh_turn_active;    // vehicle in active manual turn mode (used in monitor.c, main.c, veh_movmnt_fsm.c, pico_init.c)
   bool     led_pcb_on;         // B_Bot PCB LED status
 }  Veh_params_t; 
-//static Veh_params_t veh;              // structure name; for PC build
-//Veh_params_t veh;              // structure name
 extern Veh_params_t veh;      // Declaration of the global variable 'veh'
 // Pointer to vehicle movement parameters structure for use with 'arrow' operator
 #define veh_ptr ((Veh_params_t *)&veh)
-
-/*
-// Example of how a structure can be initialized after declaring it.
-extern Veh_params_t veh = {    // Declaration of the global variable 'veh' and initialize
-    .manual_cmd_mode   = 0,
-    .dutyCycle_primary = DCYCLE_PRIMARY,   // PWM duty cycle for motor speed; forward and reverse
-    .dutyCycle_turn    = DCYCLE_TURN,      // set to turn speed for consistent speed during turns
-    .veh_turn_dly      = TURNDLY_90DEG,
-    .active            = false
-};
-*/
 
 // Example of structures used in timer.h
 //#define timer_hw ((timer_hw_t *)TIMER_BASE)
@@ -83,53 +70,15 @@ typedef struct {
 Veh_params_t veh;              // structure name
 */
 
-// structure: Vehicle Movement parameters
-// Initialized in main.c
-// Used in: main.c and veh_movmnt_fsm.c
-// Using structures we have access to these parameters across multiple files.
-/*
-typedef struct {
-  uint32_t veh_state;          // vehicle movement state machine states
-  float cm;                    // HC-SR04 distance measurement in centimeters
-}  Fsm_params_t;               // Structure type
-//static Fsm_params_t fsm;              // structure name; for PC build
-//Fsm_params_t fsm;              // structure name
-extern Fsm_params_t fsm;       // Declaration of the global variable 'fsm'
-// Pointer to vehicle movement parameters structure for use with 'arrow' operator
-#define fsm_ptr ((Fsm_params_t *)&fsm)
-*/
-
-/*
-// Old method for direct access of structure members with "Dot" operator
-typedef struct {
-  uint32_t veh_state;          // vehicle movement state machine states
-  float cm;                    // HC-SR04 distance measurement in centimeters
-}  Fsm_params_t;               // Structure type
-//static Fsm_params_t fsm;              // structure name; for PC build
-Fsm_params_t fsm;              // structure name
-*/
-
 // Motors Slice Numbers structure
 // define structure to return multiple values
 typedef struct {
     uint32_t slice_num1;
     uint32_t slice_num2;
 } pwm_slice_t;
-//static pwm_slice_t slnum;     // structure name; for PC build
-//pwm_slice_t slnum;
 extern pwm_slice_t slnum;              // Declaration of the global variable 'slum'
 // Pointer to motor slice number structure for use with 'arrow' operator
 #define slnum_ptr ((pwm_slice_t *)&slnum)
-/*
-// Old method to define motor slice number structure
-//static struct pwm_slice_t {         // structure for PC build
-struct pwm_slice_t {
-    uint32_t slice_num1;
-    uint32_t slice_num2;
-//} slnum;                 // struct name
-} ;
-extern struct pwm_slice_t slnum;
-*/
 
 //#define BLE_IN_SIZE 20
 // BLE input, either commands or text to be display on SSD1306
@@ -141,28 +90,16 @@ typedef struct {
   bool is_cltTxt                   ;  // do we have a client message
   bool is_pcbLed                   ;  // did client press LED on or off
 } Ble_cmd_text_t;
-//static Ble_cmd_text_t blecmdtxt;     // structure name; for PC build
-//Ble_cmd_text_t blecmdtxt;
 extern Ble_cmd_text_t blecmdtxt;        // Declaration of the global variable 'blecmdtxt'
 // Pointer to the BLE cmd and text structure for use with 'arrow' operator.
 #define blecmdtxt_ptr ((Ble_cmd_text_t *)&blecmdtxt)
+
 // Example in .../pico-sdk/src/rp2040/hardware_structs/include/hardware/structs adc.h 
 //#define adc_hw ((adc_hw_t *)ADC_BASE)
-
-/*
-// A different way to access a shared structure across multiple files using extern
-struct Ble_cmd_text_t {
-  char ble_input[BLE_IN_SIZE];        // commands from client (phone) placed here
-  char client_message[BLE_IN_SIZE] ;   // text message displayed on SSD1306
-} ; 
-extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as extern
-*/
 
 // ***************************
 // Generic Definitions
 // ***************************
-// Period with which we'll enter the BTstack timer callback
-//#define HEARTBEAT_PERIOD_MS 250
 
 // Pre-processor Directives Section
 // FreeRTOS: The periods assigned to one-shot and auto-reload timers
@@ -183,32 +120,8 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 // Vehicle Movements
 // ***************************
 // distance from HC-SR04 to an object in cm
-#define MINDIS_STOPMTRS  15               // min distance is 10 cm, otherwise stop motors
+#define MINDIS_STOPMTRS  15               // min distance is 15 cm, otherwise stop motors
 //#define TURNDLY_90DEG    30
-// Pre-processor Directives Section
-// Auto-detectition and Control Vechicle states
-/*
-#define VEHSTOP_GOFOR_AUTO      1        // Vehicle stop, then go forward
-#define VEHFORWARD_AUTO         2        // Vehicle direction set to forward
-#define VEHSTOP_INITBWD_AUTO    3        // Initiate backward movement
-#define VEHSTOP_GOBACK_AUTO     4        // Vehicle stop, then go backward
-#define VEHBACKWARD_AUTO        5        // Vehicle direction set to  backward
-#define VEHSTOP_INITRIGHT_AUTO  6        // Vehicle stop, turn right
-#define VEHSTOP_TURNRIGHT_AUTO  7        // Vehicle stop, turn right
-
-// Manual Command, Right Turn FSM
-#define VEHFORWARD_MAN1         8
-#define VEHSTOP_INITRIGHT_MAN1  9
-#define VEHSTOP_TURNRIGHT_MAN1  10
-// Manual Command, Left Turn FSM
-#define VEHFORWARD_MAN2         11
-#define VEHSTOP_INITLEFT_MAN2   12
-#define VEHSTOP_TURNLEFT_MAN2   13
-// Manual Command, Backward Movement FSM
-#define VEHFORWARD_MAN3         14
-#define VEHSTOP_GOBACK_MAN3     15
-#define VEHBACKWARD_MAN3        16
-*/
 
 // ***************************
 // Pico UART
@@ -245,11 +158,8 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 #define TURN_COEFF      .288                // coeff to convert turn angle to 60mSec delays
 #endif
 
-//#define DCYCLE_PRIMARY  3
-//#define DCYCLE_TURN     2                   // set to turn speed for consistent speed during turns
 #define DCYCLE_MAX      20
 // Motor nominal multiplers (nominal=250)
-//#define MTRDCYCLEMULTIPLIER1  250          // mtr1
 // Looking from behind the B_Bot and facing forward, mtr1 is on the right side, mtr2 is on left side
 #define MTRDCYCLEMULTIPLIER1  250          // mtr1
 #define MTRDCYCLEMULTIPLIER2  249          // mtr2
@@ -264,10 +174,6 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 #define MTR1_AIN2 7      // GPIO7
 #define MTR1_PWM  6      // GPIO6; PWM3A, Channel A
 // Motor2
-//#define MTR2_BIN1 12     // GPIO12
-//#define MTR2_BIN2 11     // GPIO11
-//#define MTR2_PWM  10     // GPIO10; PWM5A
-
 #define MTR2_PWM_CHAN PWM_CHAN_B
 #define MTR2_BIN1 9      // GPIO9
 #define MTR2_BIN2 10     // GPIO10
@@ -318,10 +224,6 @@ extern struct Ble_cmd_text_t blecmdtxt;   // declare BLE input structure as exte
 // Buffer for Client commands; used in ftos_tasks.h and service_implementation.h
 //#define BLE_IN_SIZE 100
 //#define BLE_IN_SIZE 20
-
-//static char ble_input[BLE_IN_SIZE] ;      // commands from client (phone) placed here
-// used in service_implementation.h and ftos_tasks.h
-//static char client_message[BLE_IN_SIZE] = "Hi Alfredo" ; // initial message displayed on SSD1306
 
 // External LEDs
  #define LED_EX1  18      // GPIO18
