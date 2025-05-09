@@ -215,6 +215,8 @@
 // control movement.
 // May 8, 2025
 // Update to veh_movmnt_fsm.c, input to state IDLE: veh_ptr->manual_cmd_mode
+// May 9, 2025
+// Fixed manual reverse and code cleanup
 
 
 /*
@@ -288,7 +290,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // Definition of the global variable in defs.h
 Veh_params_t veh;           // global variable 'veh'
-//Fsm_params_t fsm;           // global variable 'fsm'
 pwm_slice_t slnum;          // global variable 'slum'
 Ble_cmd_text_t blecmdtxt;   // global variable 'blecmdtxt'
 
@@ -444,6 +445,7 @@ int main() {
     // Get the time since boot in microseconds using the Pico SDK function
     // Subtract start time from end time to get a duration and use the loop
     // to calculate an average.
+#ifdef UART_LOG         
     for (int rr; rr<=4; rr++){
       time_matx[rr][0][0] = time_us_64();
       uart_puts(UART_ID, "Time since boot in uSec = ");
@@ -461,6 +463,7 @@ int main() {
       uart_puts(UART_ID, us_str);
       uart_puts(UART_ID, "\r\n");
     }
+#endif
 
 
     // Clear TB6612FNG motor driver AIN1&2 and BIN1&2 to have motors start in off state
@@ -540,7 +543,6 @@ int main() {
     // ****************
     // Pushbutton connected to GPIO2
     // RP2350- E9 correction: use pull-up because of error in RP2350
-//    gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_RISE, true, &vPshbttnInterruptHandler);
     gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_FALL, true, &vPshbttnInterruptHandler);
 
     // ****************
@@ -613,18 +615,6 @@ int main() {
           3,                         // initial priority
           &xBTstack_HandlerTask      // optional task handle to create
       );
-
-      // BTstack Task used to initialize BLE functions and register callbacks
-/*
-      xTaskCreate(
-        btstackServerTask,        // pointer to the task
-        "BTserver",               // task name for kernel awareness debugging
-        1200/sizeof(StackType_t), // task stack size
-        (void*)NULL,              // optional task startup argument
-        tskIDLE_PRIORITY+2,       // initial priority
-        (TaskHandle_t*)NULL       // optional task handle to create
-      );
-*/
         
       // Start the timers, using a block time of 0 (no block time).  The
       // scheduler has not been started yet so any block time specified here
@@ -688,7 +678,7 @@ void app_set(void) {                   // initialize command array
 // BLE user input, either commands or text messages; Handler Task
 // Use Notification instead of semaphore
 // There are 3 possible types of B_Bot BLE events:
-// 1) Command (e.g., "fwd", "hlt", "rgt", "lft", "rev", "mem", "trn", "stp", "epw", "dpw", "son", "sof", "spd")
+// 1) Command (e.g., "fwd", "hlt", "rgt", "lft", "rev", "mem", "trn", "stp", "epw", "dpw", "son", "sof", "spd", "tst")
 // 2) Message (e.g., "Hi Al")
 // 3) Led Control (e.g., "on", "off") 
 //
@@ -704,9 +694,6 @@ void vBTstack_HandlerTask( void * pvParameters ) {
     uint32_t btstack_tsk_cnt = 0;
 
     // *******************************
-    // BTstack setup and registeration
-//    btstack_run_loop_init(btstack_run_loop_freertos_get_instance());
-
     btstack_memory_init();
  
     l2cap_init(); // Set up L2CAP and register L2CAP with HCI layer
@@ -890,7 +877,6 @@ void vTaskBlinkDefault() {
 #elif defined(CYW43_WL_GPIO_LED_PIN)
     // Ask the wifi "driver" to set the GPIO on or off
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-//    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, !cyw43_arch_gpio_get(CYW43_WL_GPIO_LED_PIN));
 #endif
       vTaskDelay(TaskDEFLTLED_DLY);        // FreeRTOS delay
 
@@ -953,8 +939,8 @@ static void prvTimerCallback( TimerHandle_t xTimer ) {
     // xTimer for blue blinking LED timer
     // Also used for heartbeat counter and to update SSD1306 display
     else {
-//      if ((veh_ptr->veh_fwd_active == true) | (pshbttn_fwd == true)) {
-      if ( veh_ptr->veh_fwd_active == true ) {                                  // TODO: I don't think I need pshbttn_fwd
+      if ((veh_ptr->veh_fwd_active == true) | (pshbttn_fwd == true)) {
+//      if ( veh_ptr->veh_fwd_active == true ) {                                  // TODO: I don't think I need pshbttn_fwd
 	    gpio_put(BLUE_LED, !gpio_get(BLUE_LED));  // read LED status & toggle LED
 	  }
 	  else {
@@ -969,15 +955,9 @@ static void prvTimerCallback( TimerHandle_t xTimer ) {
      
       // If a text message from client display the new message
       if (blecmdtxt_ptr->is_cltCmd == false) {             // Do we have a command or text message?
-//      if (!strcmp(blecmdtxt_ptr->ble_input, "bletxt")) {            // Do we have a text message?
          memset(blecmdtxt_ptr->ble_input, 0, sizeof(blecmdtxt_ptr->ble_input)) ;   // clear ble_input[] buffer
-	 // Display updated client message on SSD1306
-	 ssd1306_dsply(FREERTOS_ENABLED, deg_f, blecmdtxt_ptr->client_message, batt_volt_flt);   // new message
-	 // batt_volt_flt
-#ifdef UART_LOG
-         // Disabled because it is called by Timer, to much
-//         uart_puts(UART_ID, "Inside prvTimerCallback().\n\r");
-#endif
+	     // Display updated client message on SSD1306
+	     ssd1306_dsply(FREERTOS_ENABLED, deg_f, blecmdtxt_ptr->client_message, batt_volt_flt);   // new message
       } 
      
       // update temperature every x seconds
@@ -1121,9 +1101,6 @@ static inline void uart_set_irq_en_wo_timout(uart_inst_t *uart, bool rx_has_data
 // PIO RX FIFO interrupt handler
 // Interrupt automatically clear when RX FIFO is empty
 static void vPioRxInterruptHandler() {
-
-//    printf("SM0 RX FIFO IRQ fired.\n");
-
     // Disable PIO RX FIFO interrupt and re-enable them in 
     // vPioRxDeferredIntrHandlerTask() function after data is read
     // from the RX Fifo. Read RX data in the deferred task to minimize
@@ -1202,16 +1179,14 @@ static void vPioRxDeferredIntrHandlerTask( void * pvParameters ) {
             // set flag to indicate pulse width is ready
             hc_sr04_echo_rdy = 1;
             
-            // - the time for 1 pio clock tick (1/125000000 s)
+            // - the time for 1 pio clock tick (1/150000000 sec for RP2350)
             // - speed of sound in air is about 340 m/s
             // - the sound travels from the HCSR04 to the object and back (twice the distance)
             // we can calculate the distance in cm by multiplying with 0.000136
-//            fsm_ptr->cm = (float)avg_clk_cycles * HCSR04_COEFF;    // HCSR04_COEFF defined in defs.h
             veh2obs_cm = (uint32_t)((float)avg_clk_cycles * HCSR04_COEFF);    // HCSR04_COEFF defined in defs.h
 #ifdef UART_LOG 
             uart_puts(UART_ID, "cm = ");
             print_int(veh2obs_cm);
-//            print_float(fsm_ptr->cm);
             uart_puts(UART_ID, "\r\n");     // debug
 #endif
           }
@@ -1229,47 +1204,20 @@ static void vPioRxDeferredIntrHandlerTask( void * pvParameters ) {
           // Call Vechicle State Machine
           // ********************************
           // Each state executes, then waits for next ultrasonic measurement which
-          // is delayed by 60 mSec.
+          // is delayed by 60 mSec.  The tick period is 60 mSec.
           // There are two modes of operation: 1) auto obstacle detection, and
           // 2) manual mode where the user has issued a command via Bluetooth LE.
           // But first, must wait for HC-SR04 ultrasonic device to be ready.
-          // There is one FSM:
-          // Auto detect Mode
-          // 1) forward_auto_fsm()  Auto obstacle detection
-          // Manual Mode
-          // 2) userCmd_rTrn_fsm()   User requested right turn
-          // 3) userCmd_lTrn_fsm()   User requested left turn
-          // 4) userCmd_bwd_fsm()    User requested backward movement
-
+          // There is one FSM veh_movmnt_fsm.c.  The main entry to the FSM
+		  // is the function update_veh_state() with a parameter veh2obs_cm or
+		  // the distance to an obstacle in centimeters.  Before the function is
+		  // called the following vehicle state variables must be set:
+		  // veh_ptr->veh_fwd_active, veh_ptr->veh_turn_active, and 
+		  // veh_ptr->manual_cmd_mode.  The state variables are set in 
+		  // cmd_monitor.c.
           if (hc_sr04_echo_rdy==1) {
              update_veh_state(veh2obs_cm);    // Execute from state set above
           }
-
-/*
-          if (hc_sr04_echo_rdy==1) {
-        	if (veh_ptr->manual_cmd_mode==0) {            // auto obstacle detection mode using HC-SR04
-//             update_veh_state(veh2obs_cm);    // Move forward in auto-detect mode
-        	}
-        	// in manual mode; execute User command
-        	else if (veh_ptr->manual_cmd_mode==1) {  // Vehicle right turn; Manual mode
-		   trigger_manual_turn_right();         // GoTo MANUAL_INIT_TURN_RIGHT
-        	}
-        	else if (veh_ptr->manual_cmd_mode==2) {  // Vehicle left turn; Manual mode
-                   trigger_manual_turn_left();
-        	}
-        	else if (veh_ptr->manual_cmd_mode==3) {  // Vehicle reverse movement; Manual mode
-                   trigger_manual_reverse();
-        	}
-        	else {
-//                   trigger_manual_backward();
-                   veh_ptr->manual_cmd_mode = 0;   // set to auto mode
-        	}
-    		// When returning to main FSM; Stop, then go forward
-
-                update_veh_state(veh2obs_cm);    // Execute from state set above
-	        veh_ptr->manual_cmd_mode = 0;    // set to auto mode
-          }
-*/
 
           // ********************************
           // End of Vechicle State Machine
@@ -1292,7 +1240,6 @@ static void vPioRxDeferredIntrHandlerTask( void * pvParameters ) {
 static void vPshbttnInterruptHandler() { 
      
     // Disable pushbotton interrupt and re-enable them in vPshbttnDeferredIntrHandlerTask() function.
-//    gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_RISE, false, &vPshbttnInterruptHandler);
     gpio_set_irq_enabled_with_callback(BUTTON_GPIO, GPIO_IRQ_EDGE_FALL, false, &vPshbttnInterruptHandler);
     
 #ifdef UART_LOG        
@@ -1418,14 +1365,11 @@ static void pio_irq_setup(void) {
 // *****************
 // Raw ADC temperature reading and calculate Pico temperature
 void adc_poll(void) {
-//    float temp_reading;
-
     // get temperature reading
     temp_reading = get_adc_reading(ADC_CHANNEL_TEMPSENSOR);     // ADC A0 for battery voltage
     
     // The temperature sensor measures the Vbe voltage of a biased bipolar diode, connected to the fifth ADC channel
     // Typically, Vbe = 0.706V at 27 degrees C, with a slope of -1.721mV (0.001721) per degree. 
-//    float deg_c = 27 - (reading - 0.706) / 0.001721;
     deg_c = 27 - (temp_reading - 0.706) / 0.001721;
 	// (0°C × 9/5) + 32 = 32°F
 	// (0°C x 1.8) + 32 = 32°F
