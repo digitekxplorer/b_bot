@@ -218,6 +218,11 @@
 // May 9, 2025
 // Fixed manual reverse and code cleanup
 
+// **********************************************************
+// Release V2.1.0
+// May 13, 2025
+// Build for Pico2 W with RP2350 runing at 150 MHz
+
 
 /*
 Copyright (c) <2025> <Al Baeza>
